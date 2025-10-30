@@ -1,21 +1,19 @@
 "use client";
-import { useState, useEffect } from "react";
 import { ListMusic } from "lucide-react";
 
+interface Category {
+  id: string;
+  name: string;
+}
+
 interface SidebarProps {
+  categories: Category[];
   selectedCategory: string;
   setSelectedCategory: (category: string) => void;
   setIsOpen: (isOpen: boolean) => void;
 }
 
-export default function Sidebar({ selectedCategory, setSelectedCategory, setIsOpen }: SidebarProps) {
-  const [categories, setCategories] = useState<string[]>([]);
-
-  useEffect(() => {
-    fetch("/category.json")
-      .then((res) => res.json())
-      .then((data: string[]) => setCategories(data));
-  }, []);
+export default function Sidebar({ categories, selectedCategory, setSelectedCategory, setIsOpen }: SidebarProps) {
 
   const handleCategoryClick = (category: string) => {
     setSelectedCategory(category);
@@ -32,15 +30,15 @@ export default function Sidebar({ selectedCategory, setSelectedCategory, setIsOp
         <ul>
           {categories.map((category) => (
             <li
-              key={category}
+              key={category.id}
               className={`flex items-center p-4 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer ${
-                selectedCategory === category ? "bg-gray-100 dark:bg-gray-700" : ""
+                selectedCategory === category.name ? "bg-gray-100 dark:bg-gray-700" : ""
               }`}
-              onClick={() => handleCategoryClick(category)}
+              onClick={() => handleCategoryClick(category.name)}
             >
               <ListMusic className="mr-4" />
               <span>
-                {category}
+                {category.name}
               </span>
             </li>
           ))}

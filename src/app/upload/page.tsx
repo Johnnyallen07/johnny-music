@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect, FormEvent, ChangeEvent, DragEvent } from 'react';
+import { useCategories } from '@/hooks/useCategories';
+import { useUploadMusic } from '@/hooks/useUpload'; // Import useUploadMusic
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function UploadPage() {
   const [title, setTitle] = useState<string>('');
   const [artist, setArtist] = useState<string>('');
   const [category, setCategory] = useState<string>('');
-  const [categories, setCategories] = useState<string[]>([]);
   const [newCategory, setNewCategory] = useState<string>('');
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState<string>('');
@@ -16,18 +18,15 @@ export default function UploadPage() {
 
   const uploadEnabled = process.env.NEXT_PUBLIC_UPLOAD_ENABLED === 'true';
 
+  const { categories, loading: categoriesLoading } = useCategories();
+  const uploadMusicMutation = useUploadMusic(); // Use the combined hook
+  const queryClient = useQueryClient();
+
   useEffect(() => {
-    if (uploadEnabled) {
-      fetch('/category.json')
-        .then((res) => res.json())
-        .then((data: string[]) => {
-          setCategories(data);
-          if (data.length > 0) {
-            setCategory(data[0]);
-          }
-        });
+    if (categories.length > 0) {
+      setCategory(categories[0].name);
     }
-  }, [uploadEnabled]);
+  }, [categories]);
 
   if (!uploadEnabled) {
     return (
@@ -77,9 +76,9 @@ export default function UploadPage() {
   };
 
   const handleAddCategory = () => {
-    if (newCategory && !categories.includes(newCategory)) {
-      const updatedCategories = [...categories, newCategory];
-      setCategories(updatedCategories);
+    if (newCategory && !categories.some(cat => cat.name === newCategory)) {
+      // This is a temporary update on the client-side.
+      // The actual category is added when the form is submitted.
       setCategory(newCategory);
       setNewCategory('');
     }
@@ -96,68 +95,36 @@ export default function UploadPage() {
     setSubmissionMessage('开始上传...');
 
     try {
-      // 1. Get pre-signed URL from the server
-      const presignResponse = await fetch('/api/upload', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      await uploadMusicMutation.mutateAsync({
+        file,
+        musicInfo: {
+          title,
+          artist,
+          category: newCategory || category,
         },
-        body: JSON.stringify({ name: file.name, type: file.type }),
-      });
-
-      const { success, url, path: songPath, error: presignError } = await presignResponse.json();
-
-      // Log the entire response from the presign endpoint
-      console.log('Presign Response from /api/upload:', { success, url, path: songPath, error: presignError });
-
-      if (!success || !url) {
-        throw new Error(`获取预签名URL失败: ${presignError || 'URL为空'}`);
-      }
-
-      setSubmissionMessage('正在上传文件到云端...');
-
-      // 2. Upload the file to the pre-signed URL
-      const uploadResponse = await fetch(url, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': file.type,
+      }, {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['music'] });
+          setSubmissionMessage('提交成功！');
+          setTitle('');
+          setArtist('');
+          setFile(null);
+          setFileName('');
+          if (categories.length > 0) {
+            setCategory(categories[0].name);
+          }
+          setTimeout(() => setSubmissionMessage(''), 3000);
         },
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error('上传到云存储失败');
-      }
-
-      setSubmissionMessage('文件上传成功，正在更新元数据...');
-
-      // 3. Notify the server to update metadata
-      const metadataResponse = await fetch('/api/upload', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ title, artist, category, path: songPath }),
-      });
-
-      const metadataResult = await metadataResponse.json();
-
-      if (metadataResponse.ok && metadataResult.success) {
-        setSubmissionMessage('提交成功！');
-        setTitle('');
-        setArtist('');
-        setFile(null);
-        setFileName('');
-        if (categories.length > 0) {
-          setCategory(categories[0]);
+        onError: (error: Error) => {
+          console.error('Submission error:', error);
+          const message = error instanceof Error ? error.message : '发生网络错误。';
+          setSubmissionMessage(`提交失败: ${message}`);
         }
-        setTimeout(() => setSubmissionMessage(''), 3000);
-      } else {
-        throw new Error(`元数据更新失败: ${metadataResult.message || '未知错误'}`);
-      }
-    } catch (error: any) {
+      });
+    } catch (error: unknown) { // Catch any errors from mutateAsync or other parts of the try block
       console.error('Submission error:', error);
-      setSubmissionMessage(`提交失败: ${error.message || '发生网络错误。'}`);
+      const message = error instanceof Error ? error.message : '发生网络错误。';
+      setSubmissionMessage(`提交失败: ${message}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -214,11 +181,11 @@ export default function UploadPage() {
 
           <div>
             <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300">分类</label>
-            <select id="category" value={category} onChange={(e) => setCategory(e.target.value)} disabled={isSubmitting} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900 dark:text-gray-100">
-              {categories.map((cat) => (<option key={cat} value={cat}>{cat}</option>))}
+            <select id="category" value={category} onChange={(e) => setCategory(e.target.value)} disabled={isSubmitting || categoriesLoading} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900 dark:text-gray-100">
+              {categories.map((cat) => (<option key={cat.id} value={cat.name}>{cat.name}</option>))}
             </select>
             <div className="mt-2 flex items-center space-x-2">
-              <input type="text" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="或添加新分类" disabled={isSubmitting} className="mt-1 flex-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900 dark:text-gray-100" />
+              <input type="text" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="或添加新分类" disabled={isSubmitting} className="mt-1 flex-1 px-3 py-2 bg-white dark:bg-gamma-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900 dark:text-gray-100" />
               <button type="button" onClick={handleAddCategory} disabled={isSubmitting} className="mt-1 px-6 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 whitespace-nowrap">添加</button>
             </div>
           </div>

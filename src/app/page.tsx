@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo, MouseEvent, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Play,
   Pause,
@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import Player from '../components/Player';
+import { useMusic } from '@/hooks/useMusic';
+import { useCategories } from '@/hooks/useCategories';
 
 interface Song {
   title: string;
@@ -19,7 +21,8 @@ interface Song {
 }
 
 export default function Home() {
-  const [songs, setSongs] = useState<Song[]>([]);
+  const { music: songs } = useMusic();
+  const { categories } = useCategories();
   const [userOrderedPlaylist, setUserOrderedPlaylist] = useState<Song[] | null>(
     null
   );
@@ -41,17 +44,11 @@ export default function Home() {
   const playlistRef = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
-    fetch('/music-info.json')
-      .then((res) => res.json())
-      .then((data: Song[]) => {
-        const songsWithFullPath = data.map(song => ({...song, path: `${process.env.NEXT_PUBLIC_CLOUDFLARE_BUCKET_PUBLIC_URL}${song.path}`}));
-        setSongs(songsWithFullPath);
-        if (songsWithFullPath.length > 0) {
-          setActiveSong(songsWithFullPath[0]);
-          setCurrentSongIndex(0);
-        }
-      });
-  }, []);
+    if (songs.length > 0 && !activeSong) {
+      setActiveSong(songs[0]);
+      setCurrentSongIndex(0);
+    }
+  }, [songs, activeSong]);
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {
@@ -97,14 +94,7 @@ export default function Home() {
   useEffect(() => {
     if (activeSong) {
       const newIndex = playlist.findIndex((song) => song.path === activeSong.path);
-      if (newIndex === -1) {
-        if (playlist.length > 0) {
-          setActiveSong(playlist[0]);
-          setCurrentSongIndex(0);
-        }
-      } else {
-        setCurrentSongIndex(newIndex);
-      }
+      setCurrentSongIndex(newIndex);
     } else if (playlist.length > 0) {
       setActiveSong(playlist[0]);
       setCurrentSongIndex(0);
@@ -224,10 +214,6 @@ export default function Home() {
     // No need to turn off shuffle when repeat is toggled, as repeat is now single-song only.
   };
 
-  const handleDragStart = (index: number) => {
-    setDraggedIndex(index);
-  };
-
   const handleDrop = (index: number) => {
     if (draggedIndex === null) return;
 
@@ -306,6 +292,7 @@ export default function Home() {
         } transition-transform duration-300 ease-in-out bg-white dark:bg-gray-800 md:flex md:flex-col`}
       >
         <Sidebar
+          categories={categories}
           selectedCategory={selectedCategory}
           setSelectedCategory={setSelectedCategory}
           setIsOpen={setIsSidebarOpen}
