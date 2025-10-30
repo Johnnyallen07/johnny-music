@@ -1,10 +1,12 @@
 'use client';
-import { useState, useEffect, useMemo, MouseEvent } from 'react';
+import { useState, useEffect, useMemo, MouseEvent, useRef } from 'react';
 import {
   Play,
   Pause,
   Download,
   Menu,
+  CheckCircle2,
+  Search,
 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import Player from '../components/Player';
@@ -31,6 +33,12 @@ export default function Home() {
   const [isRepeat, setIsRepeat] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [cachedSongs, setCachedSongs] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchResults, setSearchResults] = useState<Song[]>([]);
+  const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
+
+  const playlistRef = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
     fetch('/music-info.json')
@@ -44,6 +52,15 @@ export default function Home() {
       });
   }, []);
 
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker
+        .register('/sw.js')
+        .then((registration) => console.log('Service Worker registered:', registration))
+        .catch((error) => console.error('Service Worker registration failed:', error));
+    }
+  }, []);
+
   const playlist = useMemo(() => {
     const filtered = songs.filter(
       (song) =>
@@ -53,23 +70,53 @@ export default function Home() {
   }, [songs, selectedCategory, userOrderedPlaylist]);
 
   useEffect(() => {
+    const checkCachedStatus = async () => {
+      if (!('caches' in window)) return;
+
+      const newCachedSongs = new Set<string>();
+      const cache = await caches.open('audio-cache-v1');
+      for (const song of playlist) {
+        const response = await cache.match(song.path);
+        if (response) {
+          newCachedSongs.add(song.path);
+        }
+      }
+      setCachedSongs(newCachedSongs);
+    };
+
+    if (playlist.length > 0) {
+      checkCachedStatus();
+    }
+  }, [playlist, activeSong]);
+
+  useEffect(() => {
     setUserOrderedPlaylist(null);
-    // When category changes, find the index of the active song in the new playlist
     if (activeSong) {
       const newIndex = playlist.findIndex(song => song.path === activeSong.path);
       setCurrentSongIndex(newIndex);
     } else if (playlist.length > 0) {
-        // If no song is active, default to the first song of the new list
         setCurrentSongIndex(0);
         setActiveSong(playlist[0]);
     } else {
-        // If new playlist is empty, reset index and active song
         setCurrentSongIndex(-1);
         setActiveSong(null);
     }
 // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [selectedCategory, userOrderedPlaylist]);
 
+  useEffect(() => {
+    if (searchQuery) {
+      const results = playlist.filter(
+        (song) =>
+          song.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          song.artist.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setSearchResults(results);
+      setHighlightedIndex(-1); // Reset highlighted index on new search
+    } else {
+      setSearchResults([]);
+    }
+  }, [searchQuery, playlist]);
 
   const playPause = () => {
     if (activeSong) {
@@ -106,9 +153,8 @@ export default function Home() {
   const handleEnded = () => {
     if (isRepeat) {
       if (activeSong) {
-        // Re-play the current song
         const newActiveSong = {...activeSong};
-        setActiveSong(newActiveSong); // Trigger re-render and effect in Player
+        setActiveSong(newActiveSong);
         setIsPlaying(true);
       }
     } else {
@@ -135,14 +181,47 @@ export default function Home() {
     setActiveSong(song);
     setCurrentSongIndex(index);
     setIsPlaying(true);
+    setSearchQuery(''); // Clear search query after selecting a song
   };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (searchResults.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setHighlightedIndex((prevIndex) =>
+          prevIndex < searchResults.length - 1 ? prevIndex + 1 : prevIndex
+        );
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setHighlightedIndex((prevIndex) =>
+          prevIndex > 0 ? prevIndex - 1 : 0
+        );
+      } else if (e.key === 'Enter' && highlightedIndex !== -1) {
+        e.preventDefault();
+        const songToPlay = searchResults[highlightedIndex];
+        const originalIndex = playlist.findIndex(s => s.path === songToPlay.path);
+        if (originalIndex !== -1) {
+          handleSongClick(songToPlay, originalIndex);
+        }
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (highlightedIndex !== -1 && playlistRef.current) {
+      const highlightedElement = playlistRef.current.children[highlightedIndex];
+      if (highlightedElement) {
+        highlightedElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+  }, [highlightedIndex]);
 
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
       <div
-        className={`fixed inset-y-0 left-0 z-30 w-64 bg-white dark:bg-gray-800 transform ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 transform md:relative md:translate-x-0 md:w-64 ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } transition-transform duration-300 ease-in-out md:relative md:translate-x-0`}
+        } transition-transform duration-300 ease-in-out bg-white dark:bg-gray-800 md:flex md:flex-col`}
       >
         <Sidebar
           selectedCategory={selectedCategory}
@@ -151,12 +230,30 @@ export default function Home() {
         />
       </div>
 
-      {/* Main Content */}
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Johnny的古典音乐库
-          </h1>
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      <main
+        className={`flex-1 flex flex-col p-4 md:p-8 overflow-y-auto transition-all duration-300 ${
+          isSidebarOpen ? 'blur-sm pointer-events-none' : ''
+        }`}
+      >
+        <div className="flex items-center justify-between mb-8 flex-shrink-0">
+          <div className="relative flex-grow mr-4">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+            <input
+              type="text"
+              placeholder="搜索音乐或艺术家..."
+              className="w-full pl-10 pr-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={handleKeyDown}
+            />
+          </div>
           <button
             className="md:hidden text-gray-900 dark:text-white"
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -165,66 +262,73 @@ export default function Home() {
           </button>
         </div>
 
-        {/* Music Player */}
-        <Player
-          activeSong={activeSong}
-          isPlaying={isPlaying}
-          isShuffle={isShuffle}
-          isRepeat={isRepeat}
-          currentTime={currentTime}
-          duration={duration}
-          onPlayPause={playPause}
-          onNext={handlePlayNext}
-          onPrev={handlePlayPrev}
-          onShuffle={() => setIsShuffle(!isShuffle)}
-          onRepeat={() => setIsRepeat(!isRepeat)}
-          onTimeUpdate={setCurrentTime}
-          onLoadedMetadata={setDuration}
-          onEnded={handleEnded}
-          onSeek={setCurrentTime}
-        />
+        <div className="flex-shrink-0">
+          <Player
+            activeSong={activeSong}
+            isPlaying={isPlaying}
+            isShuffle={isShuffle}
+            isRepeat={isRepeat}
+            currentTime={currentTime}
+            duration={duration}
+            onPlayPause={playPause}
+            onNext={handlePlayNext}
+            onPrev={handlePlayPrev}
+            onShuffle={() => setIsShuffle(!isShuffle)}
+            onRepeat={() => setIsRepeat(!isRepeat)}
+            onTimeUpdate={setCurrentTime}
+            onLoadedMetadata={setDuration}
+            onEnded={handleEnded}
+            onSeek={setCurrentTime}
+          />
+        </div>
 
-        {/* Playlist */}
-        <div className="mt-8">
+        <div className="mt-8 flex-grow overflow-y-auto">
           <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">
             播放列表
           </h2>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg">
-            <ul>
-              {playlist.map((song, index) => (
+            <ul ref={playlistRef}>
+              {(searchQuery ? searchResults : playlist).map((song, index) => (
                 <li
                   key={`${song.path}-${index}`}
                   draggable={true}
-                  onDragStart={() => handleDragStart(index)}
+                  onDragStart={() => setDraggedIndex(index)}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={() => handleDrop(index)}
-                  className={`flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer ${
+                  className={`flex items-center p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer ${
                     activeSong?.path === song.path
                       ? 'bg-gray-200 dark:bg-gray-700'
+                      : ''
+                  } ${
+                    searchQuery &&
+                    searchResults.includes(song) &&
+                    highlightedIndex === index
+                      ? 'bg-yellow-200 dark:bg-yellow-700' // Highlight search results
                       : ''
                   }`}
                   onClick={() => handleSongClick(song, index)}
                 >
-                  <div className="flex items-center">
-                    {activeSong?.path === song.path && isPlaying ? (
-                      <Pause className="mr-4 text-blue-500" />
-                    ) : (
-                      <Play className="mr-4 text-blue-500" />
-                    )}
-                    <div>
-                      <p className="font-semibold text-gray-900 dark:text-white">
-                        {song.title}
-                      </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {song.artist}
-                      </p>
-                    </div>
+                  {activeSong?.path === song.path && isPlaying ? (
+                    <Pause className="mr-4 flex-shrink-0 text-blue-500" />
+                  ) : (
+                    <Play className="mr-4 flex-shrink-0 text-blue-500" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 dark:text-white truncate">
+                      {song.title}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                      {song.artist}
+                    </p>
                   </div>
-                  <div className="flex items-center space-x-4">
+                  <div className="flex items-center flex-shrink-0 ml-4">
+                    {cachedSongs.has(song.path) && (
+                      <CheckCircle2 className="text-green-500" size={16} />
+                    )}
                     <a
                       href={song.path}
                       download
-                      className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                      className="ml-4 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                     >
                       <Download size={20} />
                     </a>

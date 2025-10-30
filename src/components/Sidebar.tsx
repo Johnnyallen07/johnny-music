@@ -23,19 +23,18 @@ export default function Sidebar({ selectedCategory, setSelectedCategory, setIsOp
   };
 
   return (
-    <aside className="bg-gray-800 text-white w-64">
-      <div className="p-4 flex items-center justify-between">
+    <aside className="bg-white text-gray-800 dark:bg-gray-800 dark:text-white h-full flex flex-col">
+      <div className="p-4 flex items-center justify-between flex-shrink-0">
         <h2 className="font-bold text-xl">
-          类别
         </h2>
       </div>
-      <nav className="mt-4">
+      <nav className="mt-4 flex-grow overflow-y-auto">
         <ul>
           {categories.map((category) => (
             <li
               key={category}
-              className={`flex items-center p-4 hover:bg-gray-700 cursor-pointer ${
-                selectedCategory === category ? "bg-gray-700" : ""
+              className={`flex items-center p-4 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer ${
+                selectedCategory === category ? "bg-gray-100 dark:bg-gray-700" : ""
               }`}
               onClick={() => handleCategoryClick(category)}
             >
