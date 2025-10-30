@@ -5,9 +5,10 @@ import { ListMusic } from "lucide-react";
 interface SidebarProps {
   selectedCategory: string;
   setSelectedCategory: (category: string) => void;
+  setIsOpen: (isOpen: boolean) => void;
 }
 
-export default function Sidebar({ selectedCategory, setSelectedCategory }: SidebarProps) {
+export default function Sidebar({ selectedCategory, setSelectedCategory, setIsOpen }: SidebarProps) {
   const [categories, setCategories] = useState<string[]>([]);
 
   useEffect(() => {
@@ -15,6 +16,11 @@ export default function Sidebar({ selectedCategory, setSelectedCategory }: Sideb
       .then((res) => res.json())
       .then((data: string[]) => setCategories(data));
   }, []);
+
+  const handleCategoryClick = (category: string) => {
+    setSelectedCategory(category);
+    setIsOpen(false);
+  };
 
   return (
     <aside className="bg-gray-800 text-white w-64">
@@ -31,7 +37,7 @@ export default function Sidebar({ selectedCategory, setSelectedCategory }: Sideb
               className={`flex items-center p-4 hover:bg-gray-700 cursor-pointer ${
                 selectedCategory === category ? "bg-gray-700" : ""
               }`}
-              onClick={() => setSelectedCategory(category)}
+              onClick={() => handleCategoryClick(category)}
             >
               <ListMusic className="mr-4" />
               <span>

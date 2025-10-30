@@ -147,6 +147,7 @@ export default function Home() {
         <Sidebar
           selectedCategory={selectedCategory}
           setSelectedCategory={setSelectedCategory}
+          setIsOpen={setIsSidebarOpen}
         />
       </div>
 
@@ -154,7 +155,7 @@ export default function Home() {
       <main className="flex-1 p-4 md:p-8 overflow-y-auto">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            我的音乐
+            Johnny的古典音乐库
           </h1>
           <button
             className="md:hidden text-gray-900 dark:text-white"

@@ -12,6 +12,10 @@ async function ensureDirExists(dirPath: string) {
 }
 
 export async function POST(request: NextRequest) {
+  if (process.env.NEXT_PUBLIC_UPLOAD_ENABLED !== 'true') {
+    return NextResponse.json({ success: false, message: 'Upload is disabled' }, { status: 403 });
+  }
+
   try {
     const data = await request.formData();
     const file: File | null = data.get('file') as unknown as File;
