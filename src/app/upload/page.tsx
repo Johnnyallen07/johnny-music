@@ -12,7 +12,7 @@ export default function UploadPage() {
   const [fileName, setFileName] = useState<string>('');
   const [submissionMessage, setSubmissionMessage] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [isDragging, setIsDragging] = useState<boolean>(false); // New state for drag-and-drop
+  const [isDragging, setIsDragging] = useState<boolean>(false);
 
   const uploadEnabled = process.env.NEXT_PUBLIC_UPLOAD_ENABLED === 'true';
 
@@ -93,23 +93,56 @@ export default function UploadPage() {
     }
 
     setIsSubmitting(true);
-    setSubmissionMessage('');
-
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('title', title);
-    formData.append('artist', artist);
-    formData.append('category', category);
+    setSubmissionMessage('开始上传...');
 
     try {
-      const response = await fetch('/api/upload', {
+      // 1. Get pre-signed URL from the server
+      const presignResponse = await fetch('/api/upload', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name: file.name, type: file.type }),
       });
 
-      const result = await response.json();
+      const { success, url, path: songPath, error: presignError } = await presignResponse.json();
 
-      if (response.ok && result.success) {
+      // Log the entire response from the presign endpoint
+      console.log('Presign Response from /api/upload:', { success, url, path: songPath, error: presignError });
+
+      if (!success || !url) {
+        throw new Error(`获取预签名URL失败: ${presignError || 'URL为空'}`);
+      }
+
+      setSubmissionMessage('正在上传文件到云端...');
+
+      // 2. Upload the file to the pre-signed URL
+      const uploadResponse = await fetch(url, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('上传到云存储失败');
+      }
+
+      setSubmissionMessage('文件上传成功，正在更新元数据...');
+
+      // 3. Notify the server to update metadata
+      const metadataResponse = await fetch('/api/upload', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title, artist, category, path: songPath }),
+      });
+
+      const metadataResult = await metadataResponse.json();
+
+      if (metadataResponse.ok && metadataResult.success) {
         setSubmissionMessage('提交成功！');
         setTitle('');
         setArtist('');
@@ -120,11 +153,11 @@ export default function UploadPage() {
         }
         setTimeout(() => setSubmissionMessage(''), 3000);
       } else {
-        setSubmissionMessage(`提交失败: ${result.message || '未知错误'}`);
+        throw new Error(`元数据更新失败: ${metadataResult.message || '未知错误'}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Submission error:', error);
-      setSubmissionMessage('提交失败: 发生网络错误。');
+      setSubmissionMessage(`提交失败: ${error.message || '发生网络错误。'}`);
     } finally {
       setIsSubmitting(false);
     }

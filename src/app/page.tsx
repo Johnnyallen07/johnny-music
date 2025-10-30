@@ -44,9 +44,10 @@ export default function Home() {
     fetch('/music-info.json')
       .then((res) => res.json())
       .then((data: Song[]) => {
-        setSongs(data);
-        if (data.length > 0) {
-          setActiveSong(data[0]);
+        const songsWithFullPath = data.map(song => ({...song, path: `${process.env.NEXT_PUBLIC_CLOUDFLARE_BUCKET_PUBLIC_URL}${song.path}`}));
+        setSongs(songsWithFullPath);
+        if (songsWithFullPath.length > 0) {
+          setActiveSong(songsWithFullPath[0]);
           setCurrentSongIndex(0);
         }
       });
