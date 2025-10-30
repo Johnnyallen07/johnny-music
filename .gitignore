@@ -42,4 +42,5 @@ next-env.d.ts
 
 .idea
 .vscode
-./public/source
+
+public/source/**/*.mp3

@@ -1,8 +1,14 @@
 [
   {
-  "title": "巴赫 a 小调第一小提琴协奏曲，BWV1041",
-  "artist": "希拉里·哈恩 / 不来梅德意志室内爱乐乐团",
-  "path": "/source/HilaryHahn_Bach_BWV1041.mp3",
-  "category": "小提琴协奏曲"
+    "title": "巴赫 a 小调第一小提琴协奏曲，BWV1041",
+    "artist": "希拉里·哈恩 / 不来梅德意志室内爱乐乐团",
+    "path": "/source/HilaryHahn_Bach_BWV1041.mp3",
+    "category": "小提琴协奏曲"
+  },
+  {
+    "title": "sample1",
+    "artist": "test",
+    "category": "小提琴",
+    "path": "/source/sample1.mp3"
   }
 ]

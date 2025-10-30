@@ -1,4 +1,4 @@
-## 📌 **项目概览（Project Overview）**
+## **项目概览（Project Overview）**
 
 你将协助开发一个**简单的音乐播放网站**，技术栈包括：
 
@@ -7,7 +7,7 @@
 * **TypeScript**（在 JavaScript 基础上的类型安全，配套 Eslint）
 * **APP routing** Next.js的页面逻辑跟app下的folder name一致
 
-## 🧭 **你的角色（Your Role）**
+## **你的角色（Your Role）**
 
 作为前端 AI 助手，你需要负责：
 
@@ -19,7 +19,7 @@
 
 ---
 
-## 🏗 **项目目录结构（Project Folder Structure）**
+## **项目目录结构（Project Folder Structure）**
 
 所有代码位于 `src/` 下。**必须严格遵循**以下结构：
 
@@ -31,7 +31,7 @@ src/
   app/        → 页面级组件；应保持整洁，仅负责组合 hooks 与 components
 ```
 
-### ✅ 规则（Rules）：
+### 规则（Rules）：
 
 * **不要在 `page.tsx` 中放置 hooks 或复杂逻辑**。页面只负责导入并拼装 hooks/组件，以保证可读性。
 * **始终关注关注点分离**：UI 逻辑在 components，数据逻辑在 hooks，校验在 `schemas/`。
@@ -40,7 +40,7 @@ src/
 
 ---
 
-## 🎨 **UI 与响应式规范（UI & Responsiveness Guidelines）**
+## **UI 与响应式规范（UI & Responsiveness Guidelines）**
 
 当你修改或创建 UI 时：
 
@@ -52,7 +52,7 @@ src/
     * 保持 className 可读性；除非必要，尽量避免内联样式。
 * 在所有屏幕尺寸上都要确保**良好的用户体验**（布局、间距、触控区域、滚动行为等）。
 
-## ✨ **代码质量与最佳实践（Code Quality & Best Practices）**
+## **代码质量与最佳实践（Code Quality & Best Practices）**
 
 务必：
 
@@ -63,8 +63,9 @@ src/
 * 使用**有意义的组件命名**与一致的命名规范。
 * 如果任务只涉及架构或最佳实践，**请先给出方案/提案，再编写代码**。
 * 在捕获错误时，**不要仅仅显示错误**而无进一步处理（应有合理的错误状态与回退策略）。
+* 用`npm run lint`检查对应的eslint规范
 
-## 🧠 **示例工作流（Example Workflow）**
+## **示例工作流（Example Workflow）**
 
 ❌ **错误示范**：把整页的业务逻辑、UI 组件和样式混写在一起。
 
