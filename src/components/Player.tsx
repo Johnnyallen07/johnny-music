@@ -66,9 +66,8 @@ export default function Player({
 
   useEffect(() => {
     if (audioRef.current && activeSong) {
-      const wasPlaying = !audioRef.current.paused;
       audioRef.current.src = activeSong.path;
-      if (wasPlaying) {
+      if (isPlaying) {
         audioRef.current.play().catch((e) => console.error('Play error:', e));
       }
     }
@@ -143,8 +142,8 @@ export default function Player({
 
       <div className="flex justify-center items-center mt-6 space-x-6">
         <button
-          className={`text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white ${
-            isShuffle ? 'text-blue-500' : ''
+          className={`hover:text-gray-900 dark:hover:text-white ${
+            isShuffle ? 'text-blue-500' : 'text-gray-600 dark:text-gray-400'
           }`}
           onClick={onShuffle}
         >
@@ -169,8 +168,8 @@ export default function Player({
           <ChevronRight size={32} />
         </button>
         <button
-          className={`text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white ${
-            isRepeat ? 'text-blue-500' : ''
+          className={`hover:text-gray-900 dark:hover:text-white ${
+            isRepeat ? 'text-blue-500' : 'text-gray-600 dark:text-gray-400'
           }`}
           onClick={onRepeat}
         >

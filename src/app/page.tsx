@@ -91,18 +91,28 @@ export default function Home() {
 
   useEffect(() => {
     setUserOrderedPlaylist(null);
+  }, [selectedCategory]);
+
+  useEffect(() => {
     if (activeSong) {
-      const newIndex = playlist.findIndex(song => song.path === activeSong.path);
-      setCurrentSongIndex(newIndex);
+      const newIndex = playlist.findIndex((song) => song.path === activeSong.path);
+      if (newIndex === -1) {
+        if (playlist.length > 0) {
+          setActiveSong(playlist[0]);
+          setCurrentSongIndex(0);
+        }
+      } else {
+        setCurrentSongIndex(newIndex);
+      }
     } else if (playlist.length > 0) {
-        setCurrentSongIndex(0);
-        setActiveSong(playlist[0]);
+      setActiveSong(playlist[0]);
+      setCurrentSongIndex(0);
     } else {
-        setCurrentSongIndex(-1);
-        setActiveSong(null);
+      setActiveSong(null);
+      setCurrentSongIndex(-1);
     }
-// eslint-disable-next-line react-hooks/exhaustive-deps
-}, [selectedCategory, userOrderedPlaylist]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playlist]);
 
   useEffect(() => {
     if (searchQuery) {
@@ -125,41 +135,92 @@ export default function Home() {
   };
 
   const handlePlayNext = () => {
-    let nextIndex;
+    if (playlist.length === 0) return;
+
+    let nextIndex = -1;
+
     if (isShuffle) {
-      nextIndex = Math.floor(Math.random() * playlist.length);
+      if (playlist.length > 1) {
+        let randomIndex;
+        do {
+          randomIndex = Math.floor(Math.random() * playlist.length);
+        } while (randomIndex === currentSongIndex);
+        nextIndex = randomIndex;
+      } else {
+        setIsPlaying(false);
+        return;
+      }
     } else {
-      const currentIndex = playlist.findIndex(song => song.path === activeSong?.path);
-      nextIndex = (currentIndex + 1) % playlist.length;
+      const potentialNextIndex = currentSongIndex + 1;
+      if (potentialNextIndex < playlist.length) {
+        nextIndex = potentialNextIndex;
+      } else {
+        setIsPlaying(false);
+        return;
+      }
     }
-    setActiveSong(playlist[nextIndex]);
-    setCurrentSongIndex(nextIndex);
-    setIsPlaying(true);
+
+    if (nextIndex !== -1) {
+      setActiveSong(playlist[nextIndex]);
+      setCurrentSongIndex(nextIndex);
+      setIsPlaying(true);
+    }
   };
   
   const handlePlayPrev = () => {
-    let prevIndex;
+    if (playlist.length === 0) return;
+
+    let prevIndex = -1;
+
     if (isShuffle) {
-      prevIndex = Math.floor(Math.random() * playlist.length);
+      if (playlist.length > 1) {
+        let randomIndex;
+        do {
+          randomIndex = Math.floor(Math.random() * playlist.length);
+        } while (randomIndex === currentSongIndex);
+        prevIndex = randomIndex;
+      } else {
+        setIsPlaying(false);
+        return;
+      }
     } else {
-      const currentIndex = playlist.findIndex(song => song.path === activeSong?.path);
-      prevIndex = (currentIndex - 1 + playlist.length) % playlist.length;
+      const potentialPrevIndex = currentSongIndex - 1;
+      if (potentialPrevIndex >= 0) {
+        prevIndex = potentialPrevIndex;
+      } else {
+        setIsPlaying(false);
+        return;
+      }
     }
-    setActiveSong(playlist[prevIndex]);
-    setCurrentSongIndex(prevIndex);
-    setIsPlaying(true);
+
+    if (prevIndex !== -1) {
+      setActiveSong(playlist[prevIndex]);
+      setCurrentSongIndex(prevIndex);
+      setIsPlaying(true);
+    }
   };
 
   const handleEnded = () => {
     if (isRepeat) {
       if (activeSong) {
-        const newActiveSong = {...activeSong};
-        setActiveSong(newActiveSong);
+        setActiveSong({ ...activeSong });
         setIsPlaying(true);
       }
     } else {
       handlePlayNext();
     }
+  };
+
+  const handleShuffleToggle = () => {
+    setIsShuffle((prev) => !prev);
+    if (isRepeat) {
+      setIsRepeat(false);
+    }
+  };
+
+  const handleRepeatToggle = () => {
+    setIsRepeat((prev) => !prev);
+    // No need to turn off shuffle when repeat is toggled, as repeat is now single-song only.
   };
 
   const handleDragStart = (index: number) => {
@@ -178,10 +239,30 @@ export default function Home() {
   };
 
   const handleSongClick = (song: Song, index: number) => {
+    const wasSearching = searchQuery !== '';
+    let songIndex = index;
+    if (wasSearching) {
+      songIndex = playlist.findIndex(s => s.path === song.path);
+    }
+
     setActiveSong(song);
-    setCurrentSongIndex(index);
+    setCurrentSongIndex(songIndex);
     setIsPlaying(true);
     setSearchQuery(''); // Clear search query after selecting a song
+
+    if (wasSearching && songIndex !== -1) {
+      setTimeout(() => {
+        if (playlistRef.current) {
+          const songElement = playlistRef.current.children[songIndex];
+          if (songElement) {
+            songElement.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center',
+            });
+          }
+        }
+      }, 0);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -273,8 +354,8 @@ export default function Home() {
             onPlayPause={playPause}
             onNext={handlePlayNext}
             onPrev={handlePlayPrev}
-            onShuffle={() => setIsShuffle(!isShuffle)}
-            onRepeat={() => setIsRepeat(!isRepeat)}
+            onShuffle={handleShuffleToggle}
+            onRepeat={handleRepeatToggle}
             onTimeUpdate={setCurrentTime}
             onLoadedMetadata={setDuration}
             onEnded={handleEnded}

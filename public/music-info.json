@@ -52,5 +52,41 @@
     "artist": "门德尔松 (Mendelssohn)",
     "category": "小提琴协奏曲",
     "path": "/source/03. 门德尔松e小调协奏曲Op.64 - III. 活泼的快板 (Itzhak Perlman).mp3"
+  },
+  {
+    "title": "01. 拉赫玛尼诺夫第2钢琴协奏曲Op.18 - I. 中板 (Kissin & Chung)",
+    "artist": "拉赫玛尼诺夫 (Rachmaninov)",
+    "category": "钢琴协奏曲",
+    "path": "/source/01. 拉赫玛尼诺夫第2钢琴协奏曲Op.18 - I. 中板 (Kissin & Chung).mp3"
+  },
+  {
+    "title": "02. 拉赫玛尼诺夫第2钢琴协奏曲Op.18 - II. 舒缓的柔板 (Kissin & Chung)",
+    "artist": "拉赫玛尼诺夫 (Rachmaninov)",
+    "category": "钢琴协奏曲",
+    "path": "/source/02. 拉赫玛尼诺夫第2钢琴协奏曲Op.18 - II. 舒缓的柔板 (Kissin & Chung).mp3"
+  },
+  {
+    "title": "03. 拉赫玛尼诺夫第2钢琴协奏曲Op.18 - III. 诙谐的快板 (Kissin & Chung)",
+    "artist": "拉赫玛尼诺夫 (Rachmaninov)",
+    "category": "钢琴协奏曲",
+    "path": "/source/03. 拉赫玛尼诺夫第2钢琴协奏曲Op.18 - III. 诙谐的快板 (Kissin & Chung).mp3"
+  },
+  {
+    "title": "01. 拉赫玛尼诺夫第3钢琴协奏曲Op.30 - I. 不太快的快板 (Yuja Wang)",
+    "artist": "拉赫玛尼诺夫 (Rachmaninov)",
+    "category": "钢琴协奏曲",
+    "path": "/source/01. 拉赫玛尼诺夫第3钢琴协奏曲Op.30 - I. 不太快的快板 (Yuja Wang).mp3"
+  },
+  {
+    "title": "02. 拉赫玛尼诺夫第3钢琴协奏曲Op.30 - II. 间奏曲 (Yuja Wang)",
+    "artist": "拉赫玛尼诺夫 (Rachmaninov)",
+    "category": "钢琴协奏曲",
+    "path": "/source/02. 拉赫玛尼诺夫第3钢琴协奏曲Op.30 - II. 间奏曲 (Yuja Wang).mp3"
+  },
+  {
+    "title": "03. 拉赫玛尼诺夫第3钢琴协奏曲Op.30 - III. 终曲 (Yuja Wang)",
+    "artist": "拉赫玛尼诺夫 (Rachmaninov)",
+    "category": "钢琴协奏曲",
+    "path": "/source/03. 拉赫玛尼诺夫第3钢琴协奏曲Op.30 - III. 终曲 (Yuja Wang).mp3"
   }
 ]
