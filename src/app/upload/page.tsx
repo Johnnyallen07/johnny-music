@@ -7,9 +7,17 @@ import { useQueryClient } from '@tanstack/react-query';
 
 export default function UploadPage() {
   const [title, setTitle] = useState<string>('');
+  const [titleZh, setTitleZh] = useState<string>('');
   const [artist, setArtist] = useState<string>('');
+  const [artistZh, setArtistZh] = useState<string>('');
+  const [performer, setPerformer] = useState<string>('');
   const [category, setCategory] = useState<string>('');
+  const [categoryZh, setCategoryZh] = useState<string>('');
   const [newCategory, setNewCategory] = useState<string>('');
+  const [series, setSeries] = useState<string>('');
+  const [seriesZh, setSeriesZh] = useState<string>('');
+  const [newSeries, setNewSeries] = useState<string>(''); // Add newSeries state
+  const [newArtist, setNewArtist] = useState<string>(''); // Add newArtist state
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState<string>('');
   const [submissionMessage, setSubmissionMessage] = useState<string>('');
@@ -19,15 +27,24 @@ export default function UploadPage() {
   const uploadEnabled = process.env.NEXT_PUBLIC_UPLOAD_ENABLED === 'true';
 
   const { config, loading: categoriesLoading } = useCategories();
-  const categories = config.categories; // Derived from config
+  const categories = config.categories || [];
+  const musicians = config.musicians || [];
+  const seriesList = config.series || [];
   const uploadMusicMutation = useUploadMusic(); // Use the combined hook
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (categories.length > 0) {
+    if (categories.length > 0 && !category) {
       setCategory(categories[0].en);
     }
-  }, [categories]);
+  }, [categories, category]);
+
+  useEffect(() => {
+    if (musicians.length > 0 && !artist) {
+      setArtist(musicians[0].en);
+      setArtistZh(musicians[0].zh);
+    }
+  }, [musicians, artist]);
 
   if (!uploadEnabled) {
     return (
@@ -45,7 +62,10 @@ export default function UploadPage() {
     }
     setFile(selectedFile);
     setFileName(selectedFile.name);
-    setTitle(selectedFile.name.replace(/\.mp3$/, ''));
+    const nameWithoutExt = selectedFile.name.replace(/\.mp3$/, '');
+    setTitle(nameWithoutExt);
+    // Auto-fill Chinese title with same value initially, user can edit
+    setTitleZh(nameWithoutExt);
   };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -76,12 +96,71 @@ export default function UploadPage() {
     }
   };
 
+  /* Removed handleAddCategory as it's now handled in render or could be adapted if needed, 
+     but standardizing on the pattern: select -> if NEW -> show inputs */
+  const handleCategoryChange = (e: ChangeEvent<HTMLSelectElement>) => {
+    const selectedEn = e.target.value;
+    setCategory(selectedEn);
+    if (selectedEn === '__NEW__') {
+      setCategoryZh('');
+      setNewCategory('');
+    }
+    // Categories are simple strings in the current config structure used in the hook, 
+    // but the hook returns objects {id, en, zh}. 
+    // Let's verify how useCategories returns data.
+    // Looking at line 273: categories.map(cat => cat.en). 
+    // Wait, the map uses `cat.en` as value.
+  };
+
   const handleAddCategory = () => {
-    if (newCategory && !categories.some(cat => cat.en === newCategory)) {
-      // This is a temporary update on the client-side.
-      // The actual category is added when the form is submitted.
+    if (newCategory) {
       setCategory(newCategory);
       setNewCategory('');
+    }
+  };
+
+  const handleArtistChange = (e: ChangeEvent<HTMLSelectElement>) => {
+    const selectedEn = e.target.value;
+    setArtist(selectedEn);
+    if (selectedEn === '__NEW__') {
+      setArtistZh('');
+      setNewArtist('');
+    } else {
+      const selected = musicians.find(m => m.en === selectedEn);
+      if (selected) {
+        setArtistZh(selected.zh);
+      }
+    }
+  };
+
+  const handleAddArtist = () => {
+    if (newArtist) {
+      setArtist(newArtist);
+      setNewArtist('');
+    }
+  };
+
+  const handleSeriesChange = (e: ChangeEvent<HTMLSelectElement>) => {
+    const selectedEn = e.target.value;
+    setSeries(selectedEn);
+    if (selectedEn === '__NEW__') {
+      setSeriesZh('');
+      setNewSeries('');
+    } else {
+      const selected = seriesList.find(s => s.en === selectedEn);
+      if (selected) {
+        setSeriesZh(selected.zh);
+      } else {
+        // If switching to empty or unknown (though select options are controlled)
+        if (selectedEn === '') setSeriesZh('');
+      }
+    }
+  };
+
+  const handleAddSeries = () => {
+    if (newSeries) {
+      setSeries(newSeries);
+      setNewSeries('');
     }
   };
 
@@ -100,8 +179,14 @@ export default function UploadPage() {
         file,
         musicInfo: {
           title,
-          artist,
-          category: newCategory || category,
+          title_zh: titleZh,
+          artist: artist === '__NEW__' ? newArtist : artist,
+          artist_zh: artist === '__NEW__' ? artistZh : (musicians.find(m => m.en === artist)?.zh || artistZh),
+          performer,
+          category: category === '__NEW__' ? newCategory : category,
+          category_zh: categoryZh,
+          series: series === '__NEW__' ? newSeries : series,
+          series_zh: series === '__NEW__' ? seriesZh : (seriesList.find(s => s.en === series)?.zh || seriesZh),
           id: crypto.randomUUID(),
         },
       }, {
@@ -109,7 +194,15 @@ export default function UploadPage() {
           queryClient.invalidateQueries({ queryKey: ['music'] });
           setSubmissionMessage('提交成功！');
           setTitle('');
+          setTitleZh('');
           setArtist('');
+          setArtistZh('');
+          setNewArtist('');
+          setPerformer('');
+          setSeries('');
+          setSeriesZh('');
+          setNewSeries('');
+          setCategoryZh('');
           setFile(null);
           setFileName('');
           if (categories.length > 0) {
@@ -171,25 +264,72 @@ export default function UploadPage() {
             </div>
           </div>
 
-          <div>
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300">名称</label>
-            <input type="text" id="title" value={title} onChange={(e) => setTitle(e.target.value)} required disabled={isSubmitting} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900 dark:text-gray-100" />
-          </div>
-
-          <div>
-            <label htmlFor="artist" className="block text-sm font-medium text-gray-700 dark:text-gray-300">作曲家</label>
-            <input type="text" id="artist" value={artist} onChange={(e) => setArtist(e.target.value)} required disabled={isSubmitting} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900 dark:text-gray-100" />
-          </div>
-
-          <div>
-            <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300">分类</label>
-            <select id="category" value={category} onChange={(e) => setCategory(e.target.value)} disabled={isSubmitting || categoriesLoading} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900 dark:text-gray-100">
-              {categories.map((cat) => (<option key={cat.id} value={cat.en}>{cat.en}</option>))}
-            </select>
-            <div className="mt-2 flex items-center space-x-2">
-              <input type="text" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="或添加新分类" disabled={isSubmitting} className="mt-1 flex-1 px-3 py-2 bg-white dark:bg-gamma-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900 dark:text-gray-100" />
-              <button type="button" onClick={handleAddCategory} disabled={isSubmitting} className="mt-1 px-6 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 whitespace-nowrap">添加</button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Name (English)</label>
+              <input type="text" id="title" value={title} onChange={(e) => setTitle(e.target.value)} required disabled={isSubmitting} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900 dark:text-gray-100" />
             </div>
+            <div>
+              <label htmlFor="titleZh" className="block text-sm font-medium text-gray-700 dark:text-gray-300">名称 (中文)</label>
+              <input type="text" id="titleZh" value={titleZh} onChange={(e) => setTitleZh(e.target.value)} disabled={isSubmitting} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900 dark:text-gray-100" />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="artist" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Musician / Composer (English)</label>
+            <select id="artist" value={artist} onChange={handleArtistChange} disabled={isSubmitting || categoriesLoading} className="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900 dark:text-gray-100">
+              {musicians.map((m) => (<option key={m.id} value={m.en}>{m.en}</option>))}
+              <option value="__NEW__">Add New...</option>
+            </select>
+            {artist === '__NEW__' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <input type="text" value={newArtist} onChange={(e) => setNewArtist(e.target.value)} placeholder="New Musician (EN)" disabled={isSubmitting} className="px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900 dark:text-gray-100" />
+                <div className="flex space-x-2">
+                  <input type="text" id="artistZh" value={artistZh} onChange={(e) => setArtistZh(e.target.value)} placeholder="音乐家 (中文)" disabled={isSubmitting} className="flex-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900 dark:text-gray-100" />
+                  <button type="button" onClick={handleAddArtist} disabled={isSubmitting} className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 whitespace-nowrap">Add</button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="performer" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Performer / 演奏者</label>
+            <input type="text" id="performer" value={performer} onChange={(e) => setPerformer(e.target.value)} disabled={isSubmitting} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900 dark:text-gray-100" />
+          </div>
+
+          <div>
+            <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Category (English)</label>
+            <select id="category" value={category} onChange={handleCategoryChange} disabled={isSubmitting || categoriesLoading} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900 dark:text-gray-100">
+              {categories.map((cat) => (<option key={cat.id} value={cat.en}>{cat.en}</option>))}
+              <option value="__NEW__">Add New...</option>
+            </select>
+            {category === '__NEW__' && (
+              <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                <input type="text" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="New Category (EN)" disabled={isSubmitting} className="px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900 dark:text-gray-100" />
+                <div className="flex space-x-2">
+                  <input type="text" value={categoryZh} onChange={(e) => setCategoryZh(e.target.value)} placeholder="新分类 (中文)" disabled={isSubmitting} className="flex-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900 dark:text-gray-100" />
+                  <button type="button" onClick={handleAddCategory} disabled={isSubmitting} className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 whitespace-nowrap">Add</button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="series" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Series (English)</label>
+            <select id="series" value={series} onChange={handleSeriesChange} disabled={isSubmitting || categoriesLoading} className="block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900 dark:text-gray-100">
+              <option value="">None / Optional</option>
+              {seriesList.map((s) => (<option key={s.id} value={s.en}>{s.en}</option>))}
+              <option value="__NEW__">Add New...</option>
+            </select>
+            {series === '__NEW__' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <input type="text" value={newSeries} onChange={(e) => setNewSeries(e.target.value)} placeholder="New Series (EN)" disabled={isSubmitting} className="px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900 dark:text-gray-100" />
+                <div className="flex space-x-2">
+                  <input type="text" id="seriesZh" value={seriesZh} onChange={(e) => setSeriesZh(e.target.value)} placeholder="系列 (中文)" disabled={isSubmitting} className="flex-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900 dark:text-gray-100" />
+                  <button type="button" onClick={handleAddSeries} disabled={isSubmitting} className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 whitespace-nowrap">Add</button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div>

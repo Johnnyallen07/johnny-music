@@ -24,3 +24,20 @@ export const getCategories = async (): Promise<CategoriesConfig> => {
 
     return resp.data;
 };
+
+// New function to fetch series mapping
+const SERIES_MAP_URL = `${process.env.NEXT_PUBLIC_CLOUDFLARE_BUCKET_PUBLIC_URL}/config/music-series.json`;
+
+export const getSeriesMap = async (): Promise<Record<string, string[]>> => {
+    // Add timestamp to prevent caching
+    const url = `${SERIES_MAP_URL}?t=${new Date().getTime()}`;
+    const resp = await axios.get<Record<string, string[]>>(url);
+
+    if (!resp.data) {
+        // Return empty object if failed, to avoid breaking the app
+        console.error("Fetching series map error");
+        return {};
+    }
+
+    return resp.data;
+};

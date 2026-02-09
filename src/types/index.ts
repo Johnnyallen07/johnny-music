@@ -25,6 +25,8 @@ export interface CategoriesConfig {
     series: CategoryItem[];
 }
 
+export type SeriesMap = Record<string, string[]>;
+
 export interface PresignedUrlPayload {
     name: string;
     type: string;

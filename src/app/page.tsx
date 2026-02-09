@@ -31,7 +31,7 @@ import { useMusicCache } from '@/hooks/useMusicCache';
 
 export default function Home() {
   const { music: songs, loading: songsLoading } = useMusic();
-  const { config, loading: categoriesLoading } = useCategories();
+  const { config, seriesMap, loading: categoriesLoading } = useCategories();
   const { activeSong, isPlaying, playSong, togglePlay } = usePlayer();
   const { t, language, setLanguage } = useLanguage();
 
@@ -58,6 +58,13 @@ export default function Home() {
         // 2. Check Series
         const seriesItem = config.series.find(s => s.id === selectedCategory);
         if (seriesItem) {
+          // If we have a series map and this series is in it, use the IDs to filter
+          if (seriesMap && seriesMap[selectedCategory]) {
+            const seriesIds = seriesMap[selectedCategory];
+            return seriesIds.includes(song.id);
+          }
+
+          // Fallback to old logic if no map data (though map should exist per plan)
           return (song.category === seriesItem.en) ||
             (song.category_zh === seriesItem.zh) ||
             (song.title.includes(seriesItem.en)) ||
@@ -83,7 +90,7 @@ export default function Home() {
       });
     }
     return result;
-  }, [songs, selectedCategory, searchQuery, language, config]);
+  }, [songs, selectedCategory, searchQuery, language, config, seriesMap]);
 
   const handleSongClick = (song: Song) => {
     if (activeSong?.path === song.path) {
