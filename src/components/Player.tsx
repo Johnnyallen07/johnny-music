@@ -1,180 +1,194 @@
 'use client';
-import { useRef, useEffect, MouseEvent } from 'react';
+
 import {
   Play,
   Pause,
+  SkipBack,
+  SkipForward,
   Shuffle,
   Repeat,
-  ChevronLeft,
-  ChevronRight,
+  Volume2,
+  VolumeX,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
+import { usePlayer } from '@/context/PlayerContext';
+import { Slider } from '@/components/ui/slider';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { useState, useEffect } from 'react';
 
-interface Song {
-  title: string;
-  artist: string;
-  path: string;
-  category: string;
-}
+export default function Player() {
+  const {
+    activeSong,
+    isPlaying,
+    togglePlay,
+    playNext,
+    playPrev,
+    isShuffle,
+    toggleShuffle,
+    isRepeat,
+    toggleRepeat,
+    currentTime,
+    duration,
+    seek,
+    volume,
+    isMuted,
+    setVolume,
+    toggleMute
+  } = usePlayer();
 
-interface PlayerProps {
-  activeSong: Song | null;
-  isPlaying: boolean;
-  isShuffle: boolean;
-  isRepeat: boolean;
-  currentTime: number;
-  duration: number;
-  onPlayPause: () => void;
-  onNext: () => void;
-  onPrev: () => void;
-  onShuffle: () => void;
-  onRepeat: () => void;
-  onTimeUpdate: (time: number) => void;
-  onLoadedMetadata: (duration: number) => void;
-  onEnded: () => void;
-  onSeek: (time: number) => void;
-}
-
-export default function Player({
-  activeSong,
-  isPlaying,
-  isShuffle,
-  isRepeat,
-  currentTime,
-  duration,
-  onPlayPause,
-  onNext,
-  onPrev,
-  onShuffle,
-  onRepeat,
-  onTimeUpdate,
-  onLoadedMetadata,
-  onEnded,
-  onSeek,
-}: PlayerProps) {
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const progressBarRef = useRef<HTMLDivElement>(null);
+  const [localProgress, setLocalProgress] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.play().catch((e) => console.error('Play error:', e));
-      } else {
-        audioRef.current.pause();
-      }
-    }
-  }, [isPlaying]);
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
 
-  useEffect(() => {
-    if (audioRef.current && activeSong) {
-      audioRef.current.src = activeSong.path;
-      if (isPlaying) {
-        audioRef.current.play().catch((e) => console.error('Play error:', e));
-      }
-    }
-  }, [activeSong]);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
 
-  const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      onTimeUpdate(audioRef.current.currentTime);
+  const toggleFullscreen = async () => {
+    if (!document.fullscreenElement) {
+      try {
+        await document.documentElement.requestFullscreen();
+      } catch (err) {
+        console.error("Error attempting to enable fullscreen:", err);
+      }
+    } else {
+      if (document.exitFullscreen) {
+        await document.exitFullscreen();
+      }
     }
   };
 
-  const handleLoadedMetadata = () => {
-    if (audioRef.current) {
-      onLoadedMetadata(audioRef.current.duration);
-    }
+  const handleSeek = (value: number[]) => {
+    setLocalProgress(value[0]);
+    setIsDragging(true);
   };
 
-  const handleSeek = (e: MouseEvent<HTMLDivElement>) => {
-    if (progressBarRef.current && audioRef.current && duration) {
-      const progressBar = progressBarRef.current;
-      const clickPosition = e.clientX - progressBar.getBoundingClientRect().left;
-      const newTime = (clickPosition / progressBar.offsetWidth) * duration;
-      audioRef.current.currentTime = newTime;
-      onSeek(newTime);
-    }
+  const handleSeekCommit = (value: number[]) => {
+    setIsDragging(false);
+    seek(value[0]);
   };
 
   const formatTime = (time: number) => {
+    if (isNaN(time)) return "0:00";
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
   };
 
-  if (!activeSong) {
-    return null;
-  }
+  if (!activeSong) return null;
+
+  const currentProgress = isDragging ? localProgress : currentTime;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-      <div>
-        <h3 className="text-2xl font-semibold text-gray-900 dark:text-white">
+    <div className="fixed bottom-0 left-0 right-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-4 z-50 h-24 flex items-center justify-between">
+      {/* Song Info */}
+      <div className="flex w-1/3 items-start flex-col gap-1">
+        <h4 className="text-sm font-semibold truncate hover:underline cursor-pointer">
           {activeSong.title}
-        </h3>
-        <p className="text-gray-500 dark:text-gray-400">
+        </h4>
+        <p className="text-xs text-muted-foreground truncate hover:underline cursor-pointer">
           {activeSong.artist}
         </p>
       </div>
 
-      <audio
-        ref={audioRef}
-        onEnded={onEnded}
-        onTimeUpdate={handleTimeUpdate}
-        onLoadedMetadata={handleLoadedMetadata}
-      />
+      {/* Controls */}
+      <div className="flex flex-col items-center justify-center w-1/3 gap-2">
+        <div className="flex items-center gap-4">
+          <Button
+            size="icon"
+            variant="ghost"
+            className={cn("h-8 w-8 text-muted-foreground hover:text-primary", isShuffle && "text-primary")}
+            onClick={toggleShuffle}
+          >
+            <Shuffle className="h-4 w-4" />
+          </Button>
 
-      <div className="mt-6">
-        <div
-          ref={progressBarRef}
-          className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 cursor-pointer"
-          onClick={handleSeek}
-        >
-          <div
-            className="bg-blue-500 h-2 rounded-full"
-            style={{ width: `${(currentTime / duration) * 100}%` }}
-          ></div>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 text-muted-foreground hover:text-primary"
+            onClick={playPrev}
+          >
+            <SkipBack className="h-5 w-5 fill-current" />
+          </Button>
+
+          <Button
+            size="icon"
+            className="h-10 w-10 rounded-full shadow-md"
+            onClick={togglePlay}
+          >
+            {isPlaying ? (
+              <Pause className="h-5 w-5 fill-current" />
+            ) : (
+              <Play className="h-5 w-5 fill-current ml-0.5" />
+            )}
+          </Button>
+
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 text-muted-foreground hover:text-primary"
+            onClick={playNext}
+          >
+            <SkipForward className="h-5 w-5 fill-current" />
+          </Button>
+
+          <Button
+            size="icon"
+            variant="ghost"
+            className={cn("h-8 w-8 text-muted-foreground hover:text-primary", isRepeat && "text-primary")}
+            onClick={toggleRepeat}
+          >
+            <Repeat className="h-4 w-4" />
+          </Button>
         </div>
-        <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400 mt-2">
-          <span>{formatTime(currentTime)}</span>
+
+        <div className="w-full max-w-md flex items-center gap-2 text-xs text-muted-foreground font-medium font-mono">
+          <span>{formatTime(currentProgress)}</span>
+          <Slider
+            value={[currentProgress]}
+            max={duration || 100}
+            step={1}
+            className="w-full hover:cursor-grab active:cursor-grabbing"
+            onValueChange={handleSeek}
+            onValueCommit={handleSeekCommit}
+          />
           <span>{formatTime(duration)}</span>
         </div>
       </div>
 
-      <div className="flex justify-center items-center mt-6 space-x-6">
-        <button
-          className={`hover:text-gray-900 dark:hover:text-white ${
-            isShuffle ? 'text-blue-500' : 'text-gray-600 dark:text-gray-400'
-          }`}
-          onClick={onShuffle}
+      {/* Volume / Extra Actions */}
+      <div className="flex w-1/3 justify-end items-center gap-2">
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8 text-muted-foreground hover:text-primary"
+          onClick={toggleMute}
         >
-          <Shuffle size={24} />
-        </button>
-        <button
-          className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-          onClick={onPrev}
+          {isMuted || volume === 0 ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+        </Button>
+        <Slider
+          value={[isMuted ? 0 : volume * 100]}
+          max={100}
+          step={1}
+          className="w-24 cursor-pointer"
+          onValueChange={(value) => setVolume(value[0] / 100)}
+        />
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8 text-muted-foreground hover:text-primary"
+          onClick={toggleFullscreen}
         >
-          <ChevronLeft size={32} />
-        </button>
-        <button
-          className="bg-blue-500 text-white rounded-full p-4"
-          onClick={onPlayPause}
-        >
-          {isPlaying ? <Pause size={32} /> : <Play size={32} />}
-        </button>
-        <button
-          className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-          onClick={onNext}
-        >
-          <ChevronRight size={32} />
-        </button>
-        <button
-          className={`hover:text-gray-900 dark:hover:text-white ${
-            isRepeat ? 'text-blue-500' : 'text-gray-600 dark:text-gray-400'
-          }`}
-          onClick={onRepeat}
-        >
-          <Repeat size={24} />
-        </button>
+          {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+        </Button>
       </div>
     </div>
   );

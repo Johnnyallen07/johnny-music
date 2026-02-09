@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
+import { PlayerProvider } from "@/context/PlayerContext";
+import { ThemeProvider } from "@/components/theme-provider";
+import { LanguageProvider } from "@/context/LanguageContext";
+import Player from "@/components/Player";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,8 +18,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Johnny的音乐库",
-  description: "Johnny的音乐库",
+  title: "Johnny Music",
+  description: "A premium music experience",
 };
 
 export default function RootLayout({
@@ -24,11 +28,29 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        <Providers>{children}</Providers>
+        <Providers>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <LanguageProvider>
+              <PlayerProvider>
+                <div className="flex h-screen flex-col overflow-hidden">
+                  <div className="flex-1 flex overflow-hidden">
+                    {children}
+                  </div>
+                  <Player />
+                </div>
+              </PlayerProvider>
+            </LanguageProvider>
+          </ThemeProvider>
+        </Providers>
       </body>
     </html>
   );

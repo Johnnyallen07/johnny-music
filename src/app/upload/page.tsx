@@ -18,13 +18,14 @@ export default function UploadPage() {
 
   const uploadEnabled = process.env.NEXT_PUBLIC_UPLOAD_ENABLED === 'true';
 
-  const { categories, loading: categoriesLoading } = useCategories();
+  const { config, loading: categoriesLoading } = useCategories();
+  const categories = config.categories; // Derived from config
   const uploadMusicMutation = useUploadMusic(); // Use the combined hook
   const queryClient = useQueryClient();
 
   useEffect(() => {
     if (categories.length > 0) {
-      setCategory(categories[0].name);
+      setCategory(categories[0].en);
     }
   }, [categories]);
 
@@ -76,7 +77,7 @@ export default function UploadPage() {
   };
 
   const handleAddCategory = () => {
-    if (newCategory && !categories.some(cat => cat.name === newCategory)) {
+    if (newCategory && !categories.some(cat => cat.en === newCategory)) {
       // This is a temporary update on the client-side.
       // The actual category is added when the form is submitted.
       setCategory(newCategory);
@@ -101,6 +102,7 @@ export default function UploadPage() {
           title,
           artist,
           category: newCategory || category,
+          id: crypto.randomUUID(),
         },
       }, {
         onSuccess: () => {
@@ -111,7 +113,7 @@ export default function UploadPage() {
           setFile(null);
           setFileName('');
           if (categories.length > 0) {
-            setCategory(categories[0].name);
+            setCategory(categories[0].en);
           }
           setTimeout(() => setSubmissionMessage(''), 3000);
         },
@@ -134,7 +136,7 @@ export default function UploadPage() {
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex flex-col justify-center items-center p-4">
       <div className="max-w-lg w-full bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-6 text-center">上传音乐</h1>
-        
+
         {submissionMessage && (
           <div className={`mb-4 p-4 text-sm rounded-lg ${submissionMessage.includes('失败') ? 'text-red-700 bg-red-100 dark:bg-red-200 dark:text-red-800' : 'text-green-700 bg-green-100 dark:bg-green-200 dark:text-green-800'}`} role="alert">
             <span className="font-medium">{submissionMessage}</span>
@@ -182,7 +184,7 @@ export default function UploadPage() {
           <div>
             <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300">分类</label>
             <select id="category" value={category} onChange={(e) => setCategory(e.target.value)} disabled={isSubmitting || categoriesLoading} className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900 dark:text-gray-100">
-              {categories.map((cat) => (<option key={cat.id} value={cat.name}>{cat.name}</option>))}
+              {categories.map((cat) => (<option key={cat.id} value={cat.en}>{cat.en}</option>))}
             </select>
             <div className="mt-2 flex items-center space-x-2">
               <input type="text" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="或添加新分类" disabled={isSubmitting} className="mt-1 flex-1 px-3 py-2 bg-white dark:bg-gamma-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-gray-900 dark:text-gray-100" />

@@ -1,14 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { S3Client, GetObjectCommand, PutObjectCommand, GetObjectCommandOutput } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-
-// Define the MusicInfo interface here for server-side use
-interface MusicInfo {
-    title: string;
-    artist: string;
-    category: string;
-    path: string;
-}
+import { MusicInfo } from '@/types';
 
 // R2 Configuration
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
@@ -18,12 +11,12 @@ const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME;
 const R2_ENDPOINT = R2_ACCOUNT_ID ? `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com` : undefined;
 
 const s3Client = new S3Client({
-  region: "auto", // R2 doesn't use regions in the traditional sense, "auto" is common for Cloudflare
-  endpoint: R2_ENDPOINT,
-  credentials: {
-    accessKeyId: R2_ACCESS_KEY_ID || '',
-    secretAccessKey: R2_SECRET_ACCESS_KEY || '',
-  },
+    region: "auto", // R2 doesn't use regions in the traditional sense, "auto" is common for Cloudflare
+    endpoint: R2_ENDPOINT,
+    credentials: {
+        accessKeyId: R2_ACCESS_KEY_ID || '',
+        secretAccessKey: R2_SECRET_ACCESS_KEY || '',
+    },
 });
 
 const MUSIC_INFO_KEY = "config/music-info.json"; // Key for the JSON file in R2
@@ -38,7 +31,11 @@ export async function PATCH(request: NextRequest) {
     }
 
     try {
-        const { title, artist, category, path: songPath } = await request.json();
+        const body = await request.json();
+        const { title, artist, category, path: songPath, id } = body;
+
+        // We accept other optional fields too
+        const { title_zh, artist_zh, category_zh, series, series_zh, performer } = body;
 
         if (!title || !artist || !category || !songPath) {
             return NextResponse.json({ success: false, message: 'Missing required fields' }, { status: 400 });
@@ -48,7 +45,7 @@ export async function PATCH(request: NextRequest) {
 
         // 1. Download music-info.json from R2
         try {
-            const getObjectCommand = new GetObjectCommand({ // Declare getObjectCommand here
+            const getObjectCommand = new GetObjectCommand({
                 Bucket: R2_BUCKET_NAME,
                 Key: MUSIC_INFO_KEY,
             });
@@ -57,7 +54,7 @@ export async function PATCH(request: NextRequest) {
             if (Body) {
                 const jsonContent = await Body.transformToString();
                 const parsedData = JSON.parse(jsonContent);
-                // Basic runtime type check for parsed data
+                // Basic runtime type check for parsed data (checking only required fields)
                 if (Array.isArray(parsedData) && parsedData.every(item =>
                     typeof item === 'object' && item !== null &&
                     'title' in item && typeof item.title === 'string' &&
@@ -87,9 +84,47 @@ export async function PATCH(request: NextRequest) {
             artist,
             category,
             path: songPath,
+            title_zh,
+            artist_zh,
+            category_zh,
+            series,
+            series_zh,
+            performer,
+            id
         };
 
-        musicData.push(newMusicInfo);
+        // Remove undefined keys
+        Object.keys(newMusicInfo).forEach(key => {
+            if (newMusicInfo[key as keyof MusicInfo] === undefined) {
+                delete newMusicInfo[key as keyof MusicInfo];
+            }
+        });
+
+        // Check if the song already exists
+        const existingIndex = musicData.findIndex(item => item.path === songPath);
+
+        if (existingIndex !== -1) {
+            // Update existing entry, merging with new info
+            musicData[existingIndex] = {
+                ...musicData[existingIndex],
+                ...newMusicInfo,
+                // Ensure ID is preserved if not provided in update (though it should be)
+                id: newMusicInfo.id || musicData[existingIndex].id
+            };
+        } else {
+            // Add new entry - ensure ID exists
+            if (!newMusicInfo.id) {
+                // Fallback if no ID provided for new song (server-side generation?)
+                // ideally client provides it or we generate one. 
+                // For now, let's require it or generate a temporary one if absolutely needed, 
+                // but typically we want the generator to handle IDs.
+                // Let's import crypto to generate UUID if missing? 
+                // Or just fail? Let's assume ID is passed or generated.
+                const crypto = require('crypto');
+                newMusicInfo.id = crypto.randomUUID();
+            }
+            musicData.push(newMusicInfo);
+        }
         const updatedJsonContent = JSON.stringify(musicData, null, 2);
 
         // 2. Upload updated music-info.json to R2 using a presigned URL

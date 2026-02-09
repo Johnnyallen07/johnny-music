@@ -1,44 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
-import axios from "axios";
-
-interface PresignedUrlPayload {
-  name: string;
-  type: string;
-}
-
-interface PresignedUrlResponse {
-  success: boolean;
-  url: string;
-  path: string;
-}
-
-interface MusicInfo {
-  title: string;
-  artist: string;
-  category: string;
-  path: string;
-}
-
-// Function to get a presigned URL from our API
-const getPresignedUrl = async (payload: PresignedUrlPayload) => {
-  const { data } = await axios.post<PresignedUrlResponse>("/api/presigned-url", payload);
-  return data;
-};
-
-// Function to upload file directly to R2 using the presigned URL
-const uploadFileToR2 = async (url: string, file: File, contentType: string) => {
-  await axios.put(url, file, {
-    headers: {
-      "Content-Type": contentType,
-    },
-  });
-};
-
-// Function to update music metadata on our API
-const updateMetadata = async (payload: MusicInfo) => {
-  const { data } = await axios.patch("/api/music-metadata", payload);
-  return data;
-};
+import { getPresignedUrl, uploadFileToR2 } from "@/api/upload";
+import { updateMetadata } from "@/api/music";
+import { MusicInfo } from "@/types";
 
 export const useUploadMusic = () => {
   return useMutation({
@@ -59,14 +22,14 @@ export const useUploadMusic = () => {
       await uploadFileToR2(url, file, file.type);
 
       // 3. Update music metadata
+      // We need to cast since updateMetadata expects full MusicInfo including path, 
+      // but here we are constructing it.
       await updateMetadata({
         ...musicInfo,
-        path: r2Path, // Use the path returned from the presigned URL API
+        path: r2Path,
       });
 
       return { success: true, message: "Music uploaded successfully" };
     },
   });
 };
-
-// Removed individual mutations as useUploadMusic now encapsulates the full flow.

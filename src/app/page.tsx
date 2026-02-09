@@ -1,413 +1,270 @@
 'use client';
-import { useState, useEffect, useMemo, useRef } from 'react';
-import {
-  Play,
-  Pause,
-  Download,
-  Menu,
-  CheckCircle2,
-  Search,
-} from 'lucide-react';
-import Sidebar from '../components/Sidebar';
-import Player from '../components/Player';
+
+import { useState, useMemo } from 'react';
 import { useMusic } from '@/hooks/useMusic';
 import { useCategories } from '@/hooks/useCategories';
-
-interface Song {
-  title: string;
-  artist: string;
-  path: string;
-  category: string;
-}
+import { usePlayer, Song } from '@/context/PlayerContext';
+import Sidebar from '@/components/Sidebar';
+import { getSongIcon } from '@/utils/iconMapping';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { useLanguage } from '@/context/LanguageContext';
+import {
+  Play,
+  Search,
+  Music2,
+  Clock,
+  MoreHorizontal,
+  ArrowDownToLine,
+  Menu as MenuIcon,
+  Check
+} from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
+import { useMusicCache } from '@/hooks/useMusicCache';
 
 export default function Home() {
-  const { music: songs } = useMusic();
-  const { categories } = useCategories();
-  const [userOrderedPlaylist, setUserOrderedPlaylist] = useState<Song[] | null>(
-    null
-  );
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState('所有音乐');
-  const [activeSong, setActiveSong] = useState<Song | null>(null);
-  const [currentSongIndex, setCurrentSongIndex] = useState(-1);
+  const { music: songs, loading: songsLoading } = useMusic();
+  const { config, loading: categoriesLoading } = useCategories();
+  const { activeSong, isPlaying, playSong, togglePlay } = usePlayer();
+  const { t, language, setLanguage } = useLanguage();
+
+  const [selectedCategory, setSelectedCategory] = useState<string>('All Music');
+  const [searchQuery, setSearchQuery] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isShuffle, setIsShuffle] = useState(false);
-  const [isRepeat, setIsRepeat] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [cachedSongs, setCachedSongs] = useState<Set<string>>(new Set());
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [searchResults, setSearchResults] = useState<Song[]>([]);
-  const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
 
-  const playlistRef = useRef<HTMLUListElement>(null);
+  // Caching integration
+  const { cachedSongs, cacheSong } = useMusicCache(songs);
 
-  useEffect(() => {
-    if (songs.length > 0 && !activeSong) {
-      setActiveSong(songs[0]);
-      setCurrentSongIndex(0);
-    }
-  }, [songs, activeSong]);
+  // We no longer need the effect to sync selectedCategory string
 
-  useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker
-        .register('/sw.js')
-        .then((registration) => console.log('Service Worker registered:', registration))
-        .catch((error) => console.error('Service Worker registration failed:', error));
-    }
-  }, []);
-
-  const playlist = useMemo(() => {
-    const filtered = songs.filter(
-      (song) =>
-        selectedCategory === '所有音乐' || song.category === selectedCategory
-    );
-    return userOrderedPlaylist || filtered;
-  }, [songs, selectedCategory, userOrderedPlaylist]);
-
-  useEffect(() => {
-    const checkCachedStatus = async () => {
-      if (!('caches' in window)) return;
-
-      const newCachedSongs = new Set<string>();
-      const cache = await caches.open('audio-cache-v1');
-      for (const song of playlist) {
-        const response = await cache.match(song.path);
-        if (response) {
-          newCachedSongs.add(song.path);
+  const filteredSongs = useMemo(() => {
+    let result = songs;
+    if (selectedCategory !== 'All Music') {
+      result = result.filter(song => {
+        // 1. Check if selectedCategory matches a Musician ID
+        const musicianItem = config.musicians.find(m => m.id === selectedCategory);
+        if (musicianItem) {
+          return (song.artist && song.artist.includes(musicianItem.en)) ||
+            (song.artist_zh && song.artist_zh.includes(musicianItem.zh));
         }
-      }
-      setCachedSongs(newCachedSongs);
-    };
 
-    if (playlist.length > 0) {
-      checkCachedStatus();
+        // 2. Check Series
+        const seriesItem = config.series.find(s => s.id === selectedCategory);
+        if (seriesItem) {
+          return (song.category === seriesItem.en) ||
+            (song.category_zh === seriesItem.zh) ||
+            (song.title.includes(seriesItem.en)) ||
+            (song.title_zh && song.title_zh.includes(seriesItem.zh));
+        }
+
+        // 3. Standard Category Match
+        const catItem = config.categories.find(c => c.id === selectedCategory);
+        if (catItem) {
+          return song.category === catItem.en || song.category_zh === catItem.zh;
+        }
+
+        // Fallback
+        return song.category === selectedCategory || song.category_zh === selectedCategory;
+      });
     }
-  }, [playlist, activeSong]);
-
-  useEffect(() => {
-    setUserOrderedPlaylist(null);
-  }, [selectedCategory]);
-
-  useEffect(() => {
-    if (activeSong) {
-      const newIndex = playlist.findIndex((song) => song.path === activeSong.path);
-      setCurrentSongIndex(newIndex);
-    } else if (playlist.length > 0) {
-      setActiveSong(playlist[0]);
-      setCurrentSongIndex(0);
-    } else {
-      setActiveSong(null);
-      setCurrentSongIndex(-1);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playlist]);
-
-  useEffect(() => {
     if (searchQuery) {
-      const results = playlist.filter(
-        (song) =>
-          song.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          song.artist.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setSearchResults(results);
-      setHighlightedIndex(-1); // Reset highlighted index on new search
+      const lowerQuery = searchQuery.toLowerCase();
+      result = result.filter(song => {
+        const title = language === 'zh' ? (song.title_zh || song.title) : song.title;
+        const artist = language === 'zh' ? (song.artist_zh || song.artist) : song.artist;
+        return title.toLowerCase().includes(lowerQuery) || artist.toLowerCase().includes(lowerQuery);
+      });
+    }
+    return result;
+  }, [songs, selectedCategory, searchQuery, language, config]);
+
+  const handleSongClick = (song: Song) => {
+    if (activeSong?.path === song.path) {
+      togglePlay();
     } else {
-      setSearchResults([]);
-    }
-  }, [searchQuery, playlist]);
-
-  const playPause = () => {
-    if (activeSong) {
-      setIsPlaying(!isPlaying);
+      playSong(song, filteredSongs);
     }
   };
 
-  const handlePlayNext = () => {
-    if (playlist.length === 0) return;
+  const handleDownload = (song: Song) => {
+    // 1. Trigger actual download
+    const link = document.createElement('a');
+    link.href = `/api/download?key=${encodeURIComponent(song.path.replace(`${process.env.NEXT_PUBLIC_CLOUDFLARE_BUCKET_PUBLIC_URL}/`, ''))}`;
+    link.download = '';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 
-    let nextIndex = -1;
-
-    if (isShuffle) {
-      if (playlist.length > 1) {
-        let randomIndex;
-        do {
-          randomIndex = Math.floor(Math.random() * playlist.length);
-        } while (randomIndex === currentSongIndex);
-        nextIndex = randomIndex;
-      } else {
-        setIsPlaying(false);
-        return;
-      }
-    } else {
-      const potentialNextIndex = currentSongIndex + 1;
-      if (potentialNextIndex < playlist.length) {
-        nextIndex = potentialNextIndex;
-      } else {
-        setIsPlaying(false);
-        return;
-      }
-    }
-
-    if (nextIndex !== -1) {
-      setActiveSong(playlist[nextIndex]);
-      setCurrentSongIndex(nextIndex);
-      setIsPlaying(true);
-    }
-  };
-  
-  const handlePlayPrev = () => {
-    if (playlist.length === 0) return;
-
-    let prevIndex = -1;
-
-    if (isShuffle) {
-      if (playlist.length > 1) {
-        let randomIndex;
-        do {
-          randomIndex = Math.floor(Math.random() * playlist.length);
-        } while (randomIndex === currentSongIndex);
-        prevIndex = randomIndex;
-      } else {
-        setIsPlaying(false);
-        return;
-      }
-    } else {
-      const potentialPrevIndex = currentSongIndex - 1;
-      if (potentialPrevIndex >= 0) {
-        prevIndex = potentialPrevIndex;
-      } else {
-        setIsPlaying(false);
-        return;
-      }
-    }
-
-    if (prevIndex !== -1) {
-      setActiveSong(playlist[prevIndex]);
-      setCurrentSongIndex(prevIndex);
-      setIsPlaying(true);
-    }
+    // 2. Cache the song
+    cacheSong(song);
   };
 
-  const handleEnded = () => {
-    if (isRepeat) {
-      if (activeSong) {
-        setActiveSong({ ...activeSong });
-        setIsPlaying(true);
-      }
-    } else {
-      handlePlayNext();
-    }
-  };
-
-  const handleShuffleToggle = () => {
-    setIsShuffle((prev) => !prev);
-    if (isRepeat) {
-      setIsRepeat(false);
-    }
-  };
-
-  const handleRepeatToggle = () => {
-    setIsRepeat((prev) => !prev);
-    // No need to turn off shuffle when repeat is toggled, as repeat is now single-song only.
-  };
-
-  const handleDrop = (index: number) => {
-    if (draggedIndex === null) return;
-
-    const newPlaylist = [...playlist];
-    const [draggedItem] = newPlaylist.splice(draggedIndex, 1);
-    newPlaylist.splice(index, 0, draggedItem);
-
-    setUserOrderedPlaylist(newPlaylist);
-    setDraggedIndex(null);
-  };
-
-  const handleSongClick = (song: Song, index: number) => {
-    const wasSearching = searchQuery !== '';
-    let songIndex = index;
-    if (wasSearching) {
-      songIndex = playlist.findIndex(s => s.path === song.path);
-    }
-
-    setActiveSong(song);
-    setCurrentSongIndex(songIndex);
-    setIsPlaying(true);
-    setSearchQuery(''); // Clear search query after selecting a song
-
-    if (wasSearching && songIndex !== -1) {
-      setTimeout(() => {
-        if (playlistRef.current) {
-          const songElement = playlistRef.current.children[songIndex];
-          if (songElement) {
-            songElement.scrollIntoView({
-              behavior: 'smooth',
-              block: 'center',
-            });
-          }
-        }
-      }, 0);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (searchResults.length > 0) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setHighlightedIndex((prevIndex) =>
-          prevIndex < searchResults.length - 1 ? prevIndex + 1 : prevIndex
-        );
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setHighlightedIndex((prevIndex) =>
-          prevIndex > 0 ? prevIndex - 1 : 0
-        );
-      } else if (e.key === 'Enter' && highlightedIndex !== -1) {
-        e.preventDefault();
-        const songToPlay = searchResults[highlightedIndex];
-        const originalIndex = playlist.findIndex(s => s.path === songToPlay.path);
-        if (originalIndex !== -1) {
-          handleSongClick(songToPlay, originalIndex);
-        }
-      }
-    }
-  };
-
-  useEffect(() => {
-    if (highlightedIndex !== -1 && playlistRef.current) {
-      const highlightedElement = playlistRef.current.children[highlightedIndex];
-      if (highlightedElement) {
-        highlightedElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }
-    }
-  }, [highlightedIndex]);
+  if (songsLoading || categoriesLoading) {
+    return <div className="flex h-full items-center justify-center">{t('common.loading')}</div>;
+  }
 
   return (
-    <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
-      <div
-        className={`fixed inset-y-0 left-0 z-50 w-64 transform md:relative md:translate-x-0 md:w-64 ${
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } transition-transform duration-300 ease-in-out bg-white dark:bg-gray-800 md:flex md:flex-col`}
-      >
+    <div className="flex h-full w-full">
+      {/* Sidebar */}
+      <div className={cn(
+        "w-64 flex-shrink-0 border-r bg-background transition-all duration-300 ease-in-out md:block",
+        isSidebarOpen ? "absolute z-50 h-full shadow-xl" : "hidden"
+      )}>
         <Sidebar
-          categories={categories}
+          config={config}
           selectedCategory={selectedCategory}
           setSelectedCategory={setSelectedCategory}
           setIsOpen={setIsSidebarOpen}
         />
       </div>
 
-      {isSidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 md:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-
-      <main
-        className={`flex-1 flex flex-col p-4 md:p-8 overflow-y-auto transition-all duration-300 ${
-          isSidebarOpen ? 'blur-sm pointer-events-none' : ''
-        }`}
-      >
-        <div className="flex items-center justify-between mb-8 flex-shrink-0">
-          <div className="relative flex-grow mr-4">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-            <input
-              type="text"
-              placeholder="搜索音乐或艺术家..."
-              className="w-full pl-10 pr-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={handleKeyDown}
-            />
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col min-w-0 bg-secondary/10">
+        {/* Header */}
+        <header className="flex items-center justify-between px-6 py-4 border-b bg-background/50 backdrop-blur sticky top-0 z-10">
+          <div className="flex items-center gap-4 flex-1">
+            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
+              <MenuIcon />
+            </Button>
+            <div className="relative w-full max-w-sm">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <input
+                type="search"
+                placeholder={t('common.searchPlaceholder')}
+                className="w-full bg-secondary rounded-full pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
           </div>
-          <button
-            className="md:hidden text-gray-900 dark:text-white"
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          >
-            <Menu size={24} />
-          </button>
-        </div>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Button variant="ghost" size="sm" onClick={() => setLanguage(language === 'en' ? 'zh' : 'en')}>
+              {language === 'en' ? '中文' : 'English'}
+            </Button>
+            <Button variant="ghost" size="icon" className="rounded-full">
+              <span className="sr-only">User menu</span>
+              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <span className="text-xs font-bold text-primary">J</span>
+              </div>
+            </Button>
+          </div>
+        </header>
 
-        <div className="flex-shrink-0">
-          <Player
-            activeSong={activeSong}
-            isPlaying={isPlaying}
-            isShuffle={isShuffle}
-            isRepeat={isRepeat}
-            currentTime={currentTime}
-            duration={duration}
-            onPlayPause={playPause}
-            onNext={handlePlayNext}
-            onPrev={handlePlayPrev}
-            onShuffle={handleShuffleToggle}
-            onRepeat={handleRepeatToggle}
-            onTimeUpdate={setCurrentTime}
-            onLoadedMetadata={setDuration}
-            onEnded={handleEnded}
-            onSeek={setCurrentTime}
-          />
-        </div>
+        <ScrollArea className="flex-1 p-6">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold tracking-tight mb-2">{t('common.welcomeBack')}</h1>
+            <p className="text-muted-foreground">{t('common.welcome_slogan')}</p>
+          </div>
 
-        <div className="mt-8 flex-grow overflow-y-auto">
-          <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">
-            播放列表
-          </h2>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg">
-            <ul ref={playlistRef}>
-              {(searchQuery ? searchResults : playlist).map((song, index) => (
-                <li
-                  key={`${song.path}-${index}`}
-                  draggable={true}
-                  onDragStart={() => setDraggedIndex(index)}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={() => handleDrop(index)}
-                  className={`flex items-center p-4 border-b border-gray-200 dark:border-gray-700 cursor-pointer ${
-                    activeSong?.path === song.path
-                      ? 'bg-gray-200 dark:bg-gray-700'
-                      : ''
-                  } ${
-                    searchQuery &&
-                    searchResults.includes(song) &&
-                    highlightedIndex === index
-                      ? 'bg-yellow-200 dark:bg-yellow-700' // Highlight search results
-                      : ''
-                  }`}
-                  onClick={() => handleSongClick(song, index)}
-                >
-                  {activeSong?.path === song.path && isPlaying ? (
-                    <Pause className="mr-4 flex-shrink-0 text-blue-500" />
-                  ) : (
-                    <Play className="mr-4 flex-shrink-0 text-blue-500" />
+          {/* Song List */}
+          <div className="space-y-1">
+            <div className="grid grid-cols-[auto_1fr_1fr_auto_auto] gap-4 px-4 py-2 text-sm font-medium text-muted-foreground border-b mb-2">
+              <span className="w-8 text-center">{t('common.index')}</span>
+              <span>{t('common.title')}</span>
+              <span className="hidden md:block">{t('common.artist')}</span>
+              <span className="hidden md:block text-right w-20">{t('common.playCount')}</span>
+              <span className="w-12 text-center"><Clock className="h-4 w-4 mx-auto" /></span>
+            </div>
+
+            {filteredSongs.map((song, i) => {
+              const isActive = activeSong?.path === song.path;
+              const isCached = cachedSongs.has(song.path);
+
+              return (
+                <div
+                  key={i}
+                  className={cn(
+                    "group grid grid-cols-[auto_1fr_1fr_auto_auto] gap-4 px-4 py-3 rounded-md items-center cursor-pointer transition-colors hover:bg-secondary/50",
+                    isActive && "bg-secondary text-primary"
                   )}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-900 dark:text-white truncate">
-                      {song.title}
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                      {song.artist}
-                    </p>
-                  </div>
-                  <div className="flex items-center flex-shrink-0 ml-4">
-                    {cachedSongs.has(song.path) && (
-                      <CheckCircle2 className="text-green-500" size={16} />
+                  onClick={() => handleSongClick(song)}
+                >
+                  <span className="w-8 text-center text-sm font-medium text-muted-foreground group-hover:hidden">
+                    {isActive && isPlaying ? (
+                      <div className="flex gap-[2px] justify-center items-end h-3">
+                        <span className="w-[3px] h-3 bg-primary animate-[bounce_1s_infinite]" />
+                        <span className="w-[3px] h-2 bg-primary animate-[bounce_1.2s_infinite]" />
+                        <span className="w-[3px] h-3 bg-primary animate-[bounce_0.8s_infinite]" />
+                      </div>
+                    ) : (
+                      i + 1
                     )}
-                    <a
-                      href={song.path}
-                      download
-                      className="ml-4 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                    >
-                      <Download size={20} />
-                    </a>
+                  </span>
+                  <span className="w-8 text-center hidden group-hover:flex items-center justify-center">
+                    <Play className="h-4 w-4 fill-current" />
+                  </span>
+
+                  {/* Title Column with Cached Indicator */}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={cn("h-10 w-10 rounded bg-muted flex items-center justify-center flex-shrink-0", isActive ? "bg-primary/10" : "bg-muted")}>
+                      {(() => {
+                        const Icon = getSongIcon(song);
+                        return <Icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-muted-foreground")} />;
+                      })()}
+                    </div>
+                    <div className="flex flex-col truncate">
+                      <div className="flex items-center gap-2">
+                        <span className={cn("font-medium truncate", isActive && "text-primary")}>{language === 'zh' ? (song.title_zh || song.title) : song.title}</span>
+                        {isCached && (
+                          <span title="Cached">
+                            <Check className="h-4 w-4 text-green-500" />
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-muted-foreground md:hidden truncate">{language === 'zh' ? (song.artist_zh || song.artist) : song.artist}</span>
+                      <span className="text-xs text-muted-foreground md:hidden truncate">{song.performer}</span>
+                    </div>
                   </div>
-                </li>
-              ))}
-            </ul>
+
+                  <div className="hidden md:flex flex-col truncate">
+                    <span className="text-sm text-muted-foreground truncate">{language === 'zh' ? (song.artist_zh || song.artist) : song.artist}</span>
+                    {song.performer && <span className="text-xs text-muted-foreground truncate">{song.performer}</span>}
+                  </div>
+
+                  <div className="hidden md:flex items-center justify-end w-20">
+                    <span className="text-sm text-muted-foreground tabular-nums">{song.count || 0}</span>
+                  </div>
+
+                  <div className="w-12 flex items-center justify-center gap-2">
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity data-[state=open]:opacity-100">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleSongClick(song)}>
+                            <Play className="mr-2 h-4 w-4" />
+                            <span>{t('common.play') || 'Play'}</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDownload(song)}>
+                            <ArrowDownToLine className="mr-2 h-4 w-4" />
+                            <span>{t('common.download') || 'Download'}</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {filteredSongs.length === 0 && (
+              <div className="py-12 text-center text-muted-foreground">
+                {t('common.noSongsFound')}
+              </div>
+            )}
           </div>
-        </div>
-      </main>
+        </ScrollArea>
+      </div>
     </div>
   );
 }
