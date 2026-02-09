@@ -16,6 +16,6 @@ config.resolver.nodeModulesPaths = [
     path.resolve(workspaceRoot, 'node_modules'),
 ];
 // 3. Force Metro to resolve (sub)dependencies from the `node_modules`
-config.resolver.disableHierarchicalLookup = true;
+// config.resolver.disableHierarchicalLookup = true;
 
 module.exports = config;

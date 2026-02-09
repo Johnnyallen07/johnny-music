@@ -10,7 +10,9 @@ export interface MusicInfo {
     series_zh?: string;
     performer?: string;
     id: string;
+    cover?: string;
     count?: number; // Merged from music-count.json
+    date?: string;
 }
 
 export interface CategoryItem {

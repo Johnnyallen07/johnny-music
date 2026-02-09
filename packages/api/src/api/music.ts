@@ -31,7 +31,21 @@ export const getMusicList = async (): Promise<MusicInfo[]> => {
             count: countData[song.id] || 0
         }));
     } catch (error) {
-        console.error("Error fetching music list:", error);
+        if (axios.isAxiosError(error)) {
+            console.error("Axios error details:", {
+                message: error.message,
+                code: error.code,
+                response: error.response?.data,
+                status: error.response?.status,
+                headers: error.response?.headers,
+                requestConfig: {
+                    url: error.config?.url,
+                    headers: error.config?.headers
+                }
+            });
+        } else {
+            console.error("Error fetching music list:", error);
+        }
         return [];
     }
 };
