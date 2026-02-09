@@ -132,6 +132,14 @@ export default function Home() {
         />
       </div>
 
+      {/* Sidebar Overlay for Mobile */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/20 z-40 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 bg-secondary/10">
         {/* Header */}
@@ -172,13 +180,13 @@ export default function Home() {
           </div>
 
           {/* Song List */}
-          <div className="space-y-1">
-            <div className="grid grid-cols-[auto_1fr_1fr_auto_auto] gap-4 px-4 py-2 text-sm font-medium text-muted-foreground border-b mb-2">
+          <div className="space-y-1 pb-48">
+            <div className="grid grid-cols-[auto_1fr_auto_auto] md:grid-cols-[auto_1fr_1fr_auto_auto] gap-2 md:gap-4 px-2 md:px-4 py-2 text-sm font-medium text-muted-foreground border-b mb-2">
               <span className="w-8 text-center">{t('common.index')}</span>
               <span>{t('common.title')}</span>
               <span className="hidden md:block">{t('common.artist')}</span>
-              <span className="hidden md:block text-right w-20">{t('common.playCount')}</span>
-              <span className="w-12 text-center"><Clock className="h-4 w-4 mx-auto" /></span>
+              <span className="text-right w-12 md:w-20">{t('common.playCount')}</span>
+              <span className="w-8 md:w-12 text-center"><Clock className="h-4 w-4 mx-auto" /></span>
             </div>
 
             {filteredSongs.map((song, i) => {
@@ -189,7 +197,7 @@ export default function Home() {
                 <div
                   key={i}
                   className={cn(
-                    "group grid grid-cols-[auto_1fr_1fr_auto_auto] gap-4 px-4 py-3 rounded-md items-center cursor-pointer transition-colors hover:bg-secondary/50",
+                    "group grid grid-cols-[auto_1fr_auto_auto] md:grid-cols-[auto_1fr_1fr_auto_auto] gap-2 md:gap-4 px-2 md:px-4 py-3 rounded-md items-center cursor-pointer transition-colors hover:bg-secondary/50",
                     isActive && "bg-secondary text-primary"
                   )}
                   onClick={() => handleSongClick(song)}
@@ -210,7 +218,7 @@ export default function Home() {
                   </span>
 
                   {/* Title Column with Cached Indicator */}
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-2 md:gap-3 min-w-0">
                     <div className={cn("h-10 w-10 rounded bg-muted flex items-center justify-center flex-shrink-0", isActive ? "bg-primary/10" : "bg-muted")}>
                       {(() => {
                         const Icon = getSongIcon(song);
@@ -236,15 +244,16 @@ export default function Home() {
                     {song.performer && <span className="text-xs text-muted-foreground truncate">{song.performer}</span>}
                   </div>
 
-                  <div className="hidden md:flex items-center justify-end w-20">
-                    <span className="text-sm text-muted-foreground tabular-nums">{song.count || 0}</span>
+                  <div className="flex items-center justify-end w-12 md:w-20">
+                    <span className="text-xs md:text-sm text-muted-foreground tabular-nums">{song.count || 0}</span>
                   </div>
 
-                  <div className="w-12 flex items-center justify-center gap-2">
+                  <div className="w-8 md:w-12 flex items-center justify-center gap-2">
                     <div onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity data-[state=open]:opacity-100">
+                          {/* Changed opacity logic: always visible on mobile (md:hidden reverse), hover on desktop */}
+                          <Button variant="ghost" size="icon" className="h-8 w-8 transition-opacity opacity-100 md:opacity-0 md:group-hover:opacity-100 data-[state=open]:opacity-100">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>

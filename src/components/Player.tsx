@@ -87,33 +87,57 @@ export default function Player() {
   const currentProgress = isDragging ? localProgress : currentTime;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-4 z-50 h-24 flex items-center justify-between">
-      {/* Song Info */}
-      <div className="flex w-1/3 items-start flex-col gap-1">
-        <h4 className="text-sm font-semibold truncate hover:underline cursor-pointer">
-          {activeSong.title}
-        </h4>
-        <p className="text-xs text-muted-foreground truncate hover:underline cursor-pointer">
-          {activeSong.artist}
-        </p>
+    <div className="fixed bottom-0 left-0 right-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-50 h-[5.5rem] md:h-24 flex flex-col justify-center">
+      {/* Progress Bar (Top) */}
+      <div className="absolute top-0 left-0 right-0 h-1.5 w-full z-10">
+        <Slider
+          value={[currentProgress]}
+          max={duration || 100}
+          step={1}
+          className="w-full h-full hover:cursor-grab active:cursor-grabbing [&_.slider-track]:h-1.5 [&_.slider-range]:h-1.5 [&_.slider-thumb]:h-3 [&_.slider-thumb]:w-3 [&_.slider-thumb]:top-[-3px]"
+          onValueChange={handleSeek}
+          onValueCommit={handleSeekCommit}
+        />
       </div>
 
-      {/* Controls */}
-      <div className="flex flex-col items-center justify-center w-1/3 gap-2">
-        <div className="flex items-center gap-4">
-          <Button
-            size="icon"
-            variant="ghost"
-            className={cn("h-8 w-8 text-muted-foreground hover:text-primary", isShuffle && "text-primary")}
-            onClick={toggleShuffle}
-          >
-            <Shuffle className="h-4 w-4" />
-          </Button>
+      <div className="flex items-center justify-between px-4 w-full h-full">
+        {/* Song Info */}
+        <div className="flex flex-1 min-w-0 md:w-1/3 items-center md:items-start flex-col gap-1 mr-4">
+          <h4 className="text-sm font-semibold truncate hover:underline cursor-pointer w-full">
+            {activeSong.title}
+          </h4>
+          <p className="text-xs text-muted-foreground truncate hover:underline cursor-pointer w-full">
+            {activeSong.artist}
+          </p>
+        </div>
 
+        {/* Controls */}
+        <div className="flex items-center justify-center gap-2 md:gap-4 md:w-1/3">
+          {/* Desktop Controls (Shuffle/Repeat/Previous) */}
+          <div className="hidden md:flex items-center gap-4">
+            <Button
+              size="icon"
+              variant="ghost"
+              className={cn("h-8 w-8 text-muted-foreground hover:text-primary", isShuffle && "text-primary")}
+              onClick={toggleShuffle}
+            >
+              <Shuffle className="h-4 w-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 text-muted-foreground hover:text-primary"
+              onClick={playPrev}
+            >
+              <SkipBack className="h-5 w-5 fill-current" />
+            </Button>
+          </div>
+
+          {/* Mobile: Prev/Next/Play always visible */}
           <Button
             size="icon"
             variant="ghost"
-            className="h-8 w-8 text-muted-foreground hover:text-primary"
+            className="md:hidden h-8 w-8 text-muted-foreground hover:text-primary"
             onClick={playPrev}
           >
             <SkipBack className="h-5 w-5 fill-current" />
@@ -121,7 +145,7 @@ export default function Player() {
 
           <Button
             size="icon"
-            className="h-10 w-10 rounded-full shadow-md"
+            className="h-10 w-10 rounded-full shadow-md flex-shrink-0"
             onClick={togglePlay}
           >
             {isPlaying ? (
@@ -143,52 +167,54 @@ export default function Player() {
           <Button
             size="icon"
             variant="ghost"
-            className={cn("h-8 w-8 text-muted-foreground hover:text-primary", isRepeat && "text-primary")}
+            className={cn("hidden md:inline-flex h-8 w-8 text-muted-foreground hover:text-primary", isRepeat && "text-primary")}
             onClick={toggleRepeat}
           >
             <Repeat className="h-4 w-4" />
           </Button>
         </div>
 
-        <div className="w-full max-w-md flex items-center gap-2 text-xs text-muted-foreground font-medium font-mono">
-          <span>{formatTime(currentProgress)}</span>
+        {/* Volume / Extra Actions - Desktop */}
+        <div className="hidden md:flex w-1/3 justify-end items-center gap-2">
+          <span className="text-xs text-muted-foreground font-medium font-mono mr-2">
+            {formatTime(currentProgress)} / {formatTime(duration)}
+          </span>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 text-muted-foreground hover:text-primary"
+            onClick={toggleMute}
+          >
+            {isMuted || volume === 0 ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+          </Button>
           <Slider
-            value={[currentProgress]}
-            max={duration || 100}
+            value={[isMuted ? 0 : volume * 100]}
+            max={100}
             step={1}
-            className="w-full hover:cursor-grab active:cursor-grabbing"
-            onValueChange={handleSeek}
-            onValueCommit={handleSeekCommit}
+            className="w-24 cursor-pointer"
+            onValueChange={(value) => setVolume(value[0] / 100)}
           />
-          <span>{formatTime(duration)}</span>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 text-muted-foreground hover:text-primary"
+            onClick={toggleFullscreen}
+          >
+            {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+          </Button>
         </div>
-      </div>
 
-      {/* Volume / Extra Actions */}
-      <div className="flex w-1/3 justify-end items-center gap-2">
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-8 w-8 text-muted-foreground hover:text-primary"
-          onClick={toggleMute}
-        >
-          {isMuted || volume === 0 ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-        </Button>
-        <Slider
-          value={[isMuted ? 0 : volume * 100]}
-          max={100}
-          step={1}
-          className="w-24 cursor-pointer"
-          onValueChange={(value) => setVolume(value[0] / 100)}
-        />
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-8 w-8 text-muted-foreground hover:text-primary"
-          onClick={toggleFullscreen}
-        >
-          {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-        </Button>
+        {/* Mobile Fullscreen Toggle - integrated into right side */}
+        <div className="flex md:hidden ml-2">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 text-muted-foreground"
+            onClick={toggleFullscreen}
+          >
+            {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+          </Button>
+        </div>
       </div>
     </div>
   );
