@@ -1,0 +1,3 @@
+{
+  "/api/music-metadata/route": "app/api/music-metadata/route.js"
+}

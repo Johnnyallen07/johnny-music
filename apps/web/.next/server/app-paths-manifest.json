@@ -1,0 +1,11 @@
+{
+  "/_global-error/page": "app/_global-error/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/download/route": "app/api/download/route.js",
+  "/api/music-metadata/route": "app/api/music-metadata/route.js",
+  "/api/play-count/route": "app/api/play-count/route.js",
+  "/api/presigned-url/route": "app/api/presigned-url/route.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/page": "app/page.js",
+  "/upload/page": "app/upload/page.js"
+}
