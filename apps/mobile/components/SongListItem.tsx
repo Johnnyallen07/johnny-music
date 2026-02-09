@@ -35,7 +35,7 @@ export const SongListItem: React.FC<SongListItemProps> = ({ song, playlist }) =>
             onPress={() => playSong(song, playlist)}
         >
             <View style={[styles.iconContainer, { backgroundColor: theme.sectionBackground }]}>
-                <Icon size={20} color={theme.tint} />
+                <Icon size={20} stroke={theme.tint} />
             </View>
             <View style={styles.infoContainer}>
                 <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>{title}</Text>

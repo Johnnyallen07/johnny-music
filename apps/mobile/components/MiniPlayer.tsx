@@ -61,12 +61,12 @@ export const MiniPlayer = () => {
                 <View style={styles.controls}>
                     <TouchableOpacity onPress={(e) => { e.stopPropagation(); togglePlay(); }} style={styles.button}>
                         {isPlaying ?
-                            <Pause size={24} color={theme.text} /> :
-                            <Play size={24} color={theme.text} />
+                            <Pause size={24} stroke={theme.text} /> :
+                            <Play size={24} stroke={theme.text} />
                         }
                     </TouchableOpacity>
                     <TouchableOpacity onPress={(e) => { e.stopPropagation(); playNext(); }} style={styles.button}>
-                        <SkipForward size={24} color={theme.text} />
+                        <SkipForward size={24} stroke={theme.text} />
                     </TouchableOpacity>
                 </View>
             </View>

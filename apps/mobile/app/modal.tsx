@@ -185,7 +185,7 @@ export default function PlayerScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.dismissButton}>
-          <ChevronDown size={32} color={iconColor} />
+          <ChevronDown size={32} stroke={iconColor} />
         </TouchableOpacity>
         <ThemedText type="subtitle" style={styles.headerTitle}>{t('player.nowPlaying')}</ThemedText>
         <View style={{ width: 32 }} />
@@ -205,7 +205,7 @@ export default function PlayerScreen() {
             {/* Artwork */}
             <View style={styles.artworkContainer}>
               <View style={[styles.iconBackground, { backgroundColor: theme.card }]}>
-                <CategoryIcon size={width * 0.4} color={theme.tint} strokeWidth={1.5} />
+                <CategoryIcon size={width * 0.4} stroke={theme.tint} strokeWidth={1.5} />
               </View>
             </View>
 
@@ -220,7 +220,7 @@ export default function PlayerScreen() {
                   <ThemedText style={styles.tagText}>{activeSong.count || 0} {t('common.plays')}</ThemedText>
                 </View>
                 <TouchableOpacity style={styles.iconButton}>
-                  <Download size={20} color={iconColor} opacity={0.7} />
+                  <Download size={20} stroke={iconColor} opacity={0.7} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -270,26 +270,26 @@ export default function PlayerScreen() {
             {/* Controls */}
             <View style={styles.controlsContainer}>
               <TouchableOpacity onPress={toggleShuffle}>
-                <Shuffle size={24} color={isShuffle ? activeIconColor : iconColor} opacity={isShuffle ? 1 : 0.5} />
+                <Shuffle size={24} stroke={isShuffle ? activeIconColor : iconColor} opacity={isShuffle ? 1 : 0.5} />
               </TouchableOpacity>
 
               <TouchableOpacity onPress={playPrev}>
-                <SkipBack size={32} color={iconColor} />
+                <SkipBack size={32} stroke={iconColor} />
               </TouchableOpacity>
 
               <TouchableOpacity onPress={togglePlay} style={styles.playButton}>
                 {isPlaying ?
-                  <Pause size={40} color="#fff" fill="#fff" /> :
-                  <Play size={40} color="#fff" fill="#fff" style={{ marginLeft: 4 }} />
+                  <Pause size={40} stroke="#fff" fill="#fff" /> :
+                  <Play size={40} stroke="#fff" fill="#fff" style={{ marginLeft: 4 }} />
                 }
               </TouchableOpacity>
 
               <TouchableOpacity onPress={playNext}>
-                <SkipForward size={32} color={iconColor} />
+                <SkipForward size={32} stroke={iconColor} />
               </TouchableOpacity>
 
               <TouchableOpacity onPress={toggleRepeat}>
-                <Repeat size={24} color={isRepeat ? activeIconColor : iconColor} opacity={isRepeat ? 1 : 0.5} />
+                <Repeat size={24} stroke={isRepeat ? activeIconColor : iconColor} opacity={isRepeat ? 1 : 0.5} />
               </TouchableOpacity>
             </View>
 
@@ -297,8 +297,8 @@ export default function PlayerScreen() {
             <View style={styles.volumeContainer}>
               <TouchableOpacity onPress={toggleMute}>
                 {(isMuted || volume === 0) ?
-                  <VolumeX size={20} color={iconColor} /> :
-                  <Volume2 size={20} color={iconColor} />
+                  <VolumeX size={20} stroke={iconColor} /> :
+                  <Volume2 size={20} stroke={iconColor} />
                 }
               </TouchableOpacity>
               <View {...volumePanResponder.panHandlers} style={styles.volumeTouchArea}>
