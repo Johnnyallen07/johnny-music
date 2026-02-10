@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useMusicCache } from '@johnny/api';
+import { useLocalMusicCheck } from '@/hooks/useLocalMusicCheck';
 import { getDailyRecommendation } from '@/utils/recommendation';
 import {
   Pagination,
@@ -39,6 +40,9 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { Skeleton } from "@/components/ui/skeleton"
+import { SettingsModal } from '@/components/SettingsModal';
+
+import { DownloadSuccessModal, shouldShowDownloadSuccessModal } from '@/components/DownloadSuccessModal';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -52,6 +56,8 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [savedFolderName, setSavedFolderName] = useState('');
 
   // Reset page when filters change (State adjustment during render)
   const [prevFilterState, setPrevFilterState] = useState({ selectedCategory, searchQuery });
@@ -62,6 +68,7 @@ export default function Home() {
 
   // Caching integration
   const { cachedSongs, cacheSong } = useMusicCache(songs);
+  const { localSongs, checkLocalAvailability } = useLocalMusicCheck(songs);
 
   const dailyRecommendations = useMemo(() => {
     return getDailyRecommendation(songs, config.categories);
@@ -146,14 +153,59 @@ export default function Home() {
     }
   };
 
-  const handleDownload = (song: Song) => {
+  const handleDownload = async (song: Song) => {
+    // Check if we have a local directory handle
+    const { getMusicDirectoryHandle, saveFileToLocalDir } = await import('@/utils/localFileManager');
+    const handle = await getMusicDirectoryHandle();
+
     // 1. Trigger actual download
-    const link = document.createElement('a');
-    link.href = `/api/download?key=${encodeURIComponent(song.path.replace(`${process.env.NEXT_PUBLIC_CLOUDFLARE_BUCKET_PUBLIC_URL}/`, ''))}`;
-    link.download = '';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const downloadUrl = `/api/download?key=${encodeURIComponent(song.path.replace(`${process.env.NEXT_PUBLIC_CLOUDFLARE_BUCKET_PUBLIC_URL}/`, ''))}`;
+
+    if (handle) {
+      try {
+        const filename = song.path.split('/').pop() || `${song.title}.mp3`;
+        const decodedFilename = decodeURIComponent(filename);
+
+        const response = await fetch(downloadUrl);
+        const blob = await response.blob();
+
+        const saved = await saveFileToLocalDir(blob, decodedFilename);
+
+        if (saved) {
+          console.log("Saved to local folder:", decodedFilename);
+
+          // Check if we should show the modal
+          const shouldShow = await shouldShowDownloadSuccessModal();
+          if (shouldShow) {
+            setSavedFolderName(handle.name);
+            setShowSuccessModal(true);
+          }
+        } else {
+          // Fallback if permission denied or error
+          const link = document.createElement('a');
+          link.href = downloadUrl;
+          link.download = '';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      } catch (e) {
+        console.error("Direct download failed, falling back", e);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = '';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    } else {
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = '';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
 
     // 2. Cache the song
     cacheSong(song);
@@ -243,12 +295,7 @@ export default function Home() {
             <Button variant="ghost" size="sm" onClick={() => setLanguage(language === 'en' ? 'zh' : 'en')}>
               {language === 'en' ? '中文' : 'English'}
             </Button>
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <span className="sr-only">User menu</span>
-              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <span className="text-xs font-bold text-primary">J</span>
-              </div>
-            </Button>
+            <SettingsModal onRescan={checkLocalAvailability} />
           </div>
         </header>
 
@@ -284,7 +331,7 @@ export default function Home() {
             {paginatedSongs.map((song, i) => {
               const globalIndex = (currentPage - 1) * ITEMS_PER_PAGE + i;
               const isActive = activeSong?.path === song.path;
-              const isCached = cachedSongs.has(song.path);
+              const isCached = cachedSongs.has(song.path) || localSongs.has(song.path);
 
               return (
                 <div
@@ -439,7 +486,14 @@ export default function Home() {
             )}
           </div>
         </ScrollArea>
+
       </div>
-    </div>
+
+      <DownloadSuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        folderName={savedFolderName}
+      />
+    </div >
   );
 }

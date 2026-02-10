@@ -22,7 +22,21 @@ export const dictionaries = {
             performer: "Performer",
             index: "#",
             playCount: "Plays",
-            dailyRecommendation: "Daily Recommendation"
+            dailyRecommendation: "Daily Recommendation",
+            settings: "Settings",
+            downloadLocation: "Download Location",
+            downloadDesc: "Select a local folder to prioritize playing downloaded music.",
+            defaultFolder: "Default Browser Downloads",
+            customFolderSet: "Custom folder active",
+            change: "Change",
+            localFileNote: "To play offline music, please select the folder where you save your downloads.",
+            downloadSuccess: "Download Successful",
+            fileSavedTo: "File saved to:",
+            dontShowAgain: "Don't show this again",
+            gotIt: "Got it",
+            rescan: "Rescan",
+            rescanDesc: "Check for changes in your local folder (e.g. deleted files).",
+            scanning: "Scanning..."
         },
         sidebar: {
             menu: "Menu"
@@ -52,7 +66,21 @@ export const dictionaries = {
             performer: "演奏者",
             index: "序号",
             playCount: "播放次数",
-            dailyRecommendation: "每日推荐"
+            dailyRecommendation: "每日推荐",
+            settings: "设置",
+            downloadLocation: "下载位置",
+            downloadDesc: "选择本地文件夹以优先播放下载的音乐。",
+            defaultFolder: "默认浏览器下载",
+            customFolderSet: "自定义文件夹已启用",
+            change: "更改",
+            localFileNote: "要离线播放音乐，请选择您保存下载内容的文件夹。",
+            downloadSuccess: "下载成功",
+            fileSavedTo: "文件已保存至：",
+            dontShowAgain: "不再提示",
+            gotIt: "知道了",
+            rescan: "重新扫描",
+            rescanDesc: "检查本地文件夹的更改（例如已删除的文件）。",
+            scanning: "扫描中..."
         },
         sidebar: {
             menu: "菜单"

@@ -83,15 +83,36 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             if (audioRef.current && activeSong) {
                 let src = activeSong.path;
 
-                // Check cache first
-                // Need to import dynamically or use global function if not in hook?
-                // Importing cache utility here is fine.
-                const { getCachedUrl } = await import('@johnny/api');
-                const cachedUrl = await getCachedUrl(activeSong.path);
+                // 1. Check Local File System first
+                // Use the filename from the path
+                const filename = activeSong.path.split('/').pop();
+                if (filename) {
+                    const { getLocalAudioUrl } = await import('@/utils/localFileManager');
+                    const decodedFilename = decodeURIComponent(filename);
+                    const localUrl = await getLocalAudioUrl(decodedFilename);
 
-                if (cachedUrl) {
-                    src = cachedUrl;
-                    console.log("Playing from cache:", src);
+                    if (localUrl) {
+                        src = localUrl;
+                        console.log("Playing from local file system:", src);
+                    } else {
+                        // 2. Fallback to Service Worker Cache
+                        const { getCachedUrl } = await import('@johnny/api');
+                        const cachedUrl = await getCachedUrl(activeSong.path);
+
+                        if (cachedUrl) {
+                            src = cachedUrl;
+                            console.log("Playing from cache:", src);
+                        }
+                    }
+                } else {
+                    // Fallback to Service Worker Cache if no filename extraction
+                    const { getCachedUrl } = await import('@johnny/api');
+                    const cachedUrl = await getCachedUrl(activeSong.path);
+
+                    if (cachedUrl) {
+                        src = cachedUrl;
+                        console.log("Playing from cache:", src);
+                    }
                 }
 
                 if (audioRef.current.src !== src && audioRef.current.src !== window.location.origin + src) { // Check both relative/absolute match loosely
