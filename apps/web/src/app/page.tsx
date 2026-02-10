@@ -13,7 +13,6 @@ import { useLanguage } from '@/context/LanguageContext';
 import {
   Play,
   Search,
-  Music2,
   Clock,
   MoreHorizontal,
   ArrowDownToLine,
@@ -28,6 +27,18 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useMusicCache } from '@johnny/api';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
+import { Skeleton } from "@/components/ui/skeleton"
+
+const ITEMS_PER_PAGE = 20;
 
 export default function Home() {
   const { music: songs, loading: songsLoading } = useMusic();
@@ -38,6 +49,14 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<string>('All Music');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Reset page when filters change (State adjustment during render)
+  const [prevFilterState, setPrevFilterState] = useState({ selectedCategory, searchQuery });
+  if (prevFilterState.selectedCategory !== selectedCategory || prevFilterState.searchQuery !== searchQuery) {
+    setPrevFilterState({ selectedCategory, searchQuery });
+    setCurrentPage(1);
+  }
 
   // Caching integration
   const { cachedSongs, cacheSong } = useMusicCache(songs);
@@ -92,6 +111,21 @@ export default function Home() {
     return result;
   }, [songs, selectedCategory, searchQuery, language, config, seriesMap]);
 
+  const totalPages = Math.ceil(filteredSongs.length / ITEMS_PER_PAGE);
+  const paginatedSongs = filteredSongs.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll to top of the list
+    const scrollArea = document.querySelector('[data-radix-scroll-area-viewport]');
+    if (scrollArea) {
+      scrollArea.scrollTop = 0;
+    }
+  };
+
   const handleSongClick = (song: Song) => {
     if (activeSong?.path === song.path) {
       togglePlay();
@@ -114,7 +148,38 @@ export default function Home() {
   };
 
   if (songsLoading || categoriesLoading) {
-    return <div className="flex h-full items-center justify-center">{t('common.loading')}</div>;
+    return (
+      <div className="flex h-full w-full">
+        {/* Sidebar Skeleton */}
+        <div className="hidden md:block w-64 flex-shrink-0 border-r bg-background p-4 space-y-4">
+          <Skeleton className="h-8 w-3/4" />
+          <div className="space-y-2">
+            {[...Array(10)].map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
+          </div>
+        </div>
+
+        {/* Main Content Skeleton */}
+        <div className="flex-1 flex flex-col min-w-0 bg-secondary/10">
+          <div className="h-16 border-b bg-background/50 backdrop-blur" />
+          <div className="flex-1 p-6 space-y-6">
+            <div className="space-y-2">
+              <Skeleton className="h-8 w-48" />
+              <Skeleton className="h-4 w-96" />
+            </div>
+            <div className="space-y-2">
+              {/* Match the table header height */}
+              <Skeleton className="h-10 w-full" />
+              {/* List items */}
+              {[...Array(10)].map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -189,7 +254,8 @@ export default function Home() {
               <span className="w-8 md:w-12 text-center"><Clock className="h-4 w-4 mx-auto" /></span>
             </div>
 
-            {filteredSongs.map((song, i) => {
+            {paginatedSongs.map((song, i) => {
+              const globalIndex = (currentPage - 1) * ITEMS_PER_PAGE + i;
               const isActive = activeSong?.path === song.path;
               const isCached = cachedSongs.has(song.path);
 
@@ -210,7 +276,7 @@ export default function Home() {
                         <span className="w-[3px] h-3 bg-primary animate-[bounce_0.8s_infinite]" />
                       </div>
                     ) : (
-                      i + 1
+                      globalIndex + 1
                     )}
                   </span>
                   <span className="w-8 text-center hidden group-hover:flex items-center justify-center">
@@ -273,9 +339,75 @@ export default function Home() {
                 </div>
               );
             })}
-            {filteredSongs.length === 0 && (
+            {paginatedSongs.length === 0 && (
               <div className="py-12 text-center text-muted-foreground">
                 {t('common.noSongsFound')}
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="mt-8 mb-8 pb-32">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                        className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+
+                    {/* First Page */}
+                    {currentPage > 3 && (
+                      <>
+                        <PaginationItem>
+                          <PaginationLink onClick={() => handlePageChange(1)}>
+                            1
+                          </PaginationLink>
+                        </PaginationItem>
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      </>
+                    )}
+
+                    {/* Page Numbers */}
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(page => Math.abs(page - currentPage) <= 2)
+                      .map(page => (
+                        <PaginationItem key={page}>
+                          <PaginationLink
+                            isActive={page === currentPage}
+                            onClick={() => handlePageChange(page)}
+                            className="cursor-pointer"
+                          >
+                            {page}
+                          </PaginationLink>
+                        </PaginationItem>
+                      ))}
+
+                    {/* Last Page */}
+                    {currentPage < totalPages - 2 && (
+                      <>
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                        <PaginationItem>
+                          <PaginationLink onClick={() => handlePageChange(totalPages)}>
+                            {totalPages}
+                          </PaginationLink>
+                        </PaginationItem>
+                      </>
+                    )}
+
+                    <PaginationItem>
+                      <PaginationNext
+                        onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                        className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
               </div>
             )}
           </div>
