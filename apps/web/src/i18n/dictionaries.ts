@@ -21,7 +21,8 @@ export const dictionaries = {
             artist: "Artist",
             performer: "Performer",
             index: "#",
-            playCount: "Plays"
+            playCount: "Plays",
+            dailyRecommendation: "Daily Recommendation"
         },
         sidebar: {
             menu: "Menu"
@@ -50,7 +51,8 @@ export const dictionaries = {
             artist: "艺术家",
             performer: "演奏者",
             index: "序号",
-            playCount: "播放次数"
+            playCount: "播放次数",
+            dailyRecommendation: "每日推荐"
         },
         sidebar: {
             menu: "菜单"

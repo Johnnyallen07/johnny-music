@@ -17,7 +17,8 @@ import {
   MoreHorizontal,
   ArrowDownToLine,
   Menu as MenuIcon,
-  Check
+  Check,
+  Sparkles
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -27,6 +28,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useMusicCache } from '@johnny/api';
+import { getDailyRecommendation } from '@/utils/recommendation';
 import {
   Pagination,
   PaginationContent,
@@ -46,7 +48,7 @@ export default function Home() {
   const { activeSong, isPlaying, playSong, togglePlay } = usePlayer();
   const { t, language, setLanguage } = useLanguage();
 
-  const [selectedCategory, setSelectedCategory] = useState<string>('All Music');
+  const [selectedCategory, setSelectedCategory] = useState<string>('daily-recommendation');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -61,11 +63,21 @@ export default function Home() {
   // Caching integration
   const { cachedSongs, cacheSong } = useMusicCache(songs);
 
-  // We no longer need the effect to sync selectedCategory string
+  const dailyRecommendations = useMemo(() => {
+    return getDailyRecommendation(songs, config.categories);
+  }, [songs, config.categories]);
 
   const filteredSongs = useMemo(() => {
+    if (selectedCategory === 'daily-recommendation' && !searchQuery) {
+      return dailyRecommendations;
+    }
     let result = songs;
-    if (selectedCategory !== 'All Music') {
+
+    // Treat 'daily-recommendation' as 'All Music' for the list below, 
+    // or if we want to filter specifically, we might need to adjust. 
+    // But per req, "put all music under recommendation", so we likely want All Music list always.
+
+    if (selectedCategory !== 'All Music' && selectedCategory !== 'daily-recommendation') {
       result = result.filter(song => {
         // 1. Check if selectedCategory matches a Musician ID
         const musicianItem = config.musicians.find(m => m.id === selectedCategory);
@@ -182,6 +194,8 @@ export default function Home() {
     );
   }
 
+
+
   return (
     <div className="flex h-full w-full">
       {/* Sidebar */}
@@ -239,12 +253,25 @@ export default function Home() {
         </header>
 
         <ScrollArea className="flex-1 p-6">
+          {/* Daily Recommendation Section */}
+
+
+          {/* Main List Section */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold tracking-tight mb-2">{t('common.welcomeBack')}</h1>
-            <p className="text-muted-foreground">{t('common.welcome_slogan')}</p>
+            <h1 className="text-3xl font-bold tracking-tight mb-2">
+              {selectedCategory === 'All Music'
+                ? t('common.allMusic')
+                : (selectedCategory === 'daily-recommendation'
+                  ? t('common.dailyRecommendation')
+                  : (config.categories.find(c => c.id === selectedCategory)
+                    ? (language === 'zh' ? config.categories.find(c => c.id === selectedCategory)?.zh : config.categories.find(c => c.id === selectedCategory)?.en)
+                    : selectedCategory)
+                )
+              }
+            </h1>
+            {selectedCategory === 'All Music' && <p className="text-muted-foreground">{t('common.welcomeBack')}</p>}
           </div>
 
-          {/* Song List */}
           <div className="space-y-1 pb-48">
             <div className="grid grid-cols-[auto_1fr_auto_auto] md:grid-cols-[auto_1fr_1fr_auto_auto] gap-2 md:gap-4 px-2 md:px-4 py-2 text-sm font-medium text-muted-foreground border-b mb-2">
               <span className="w-8 text-center">{t('common.index')}</span>

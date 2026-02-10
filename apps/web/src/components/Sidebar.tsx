@@ -1,4 +1,4 @@
-import { ListMusic, Music2, Users, Disc } from "lucide-react";
+import { ListMusic, Music2, Users, Disc, Sparkles } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -42,12 +42,12 @@ export default function Sidebar({ config, selectedCategory, setSelectedCategory,
               </h3>
               <div className="space-y-1">
                 <Button
-                  variant={selectedCategory === 'All Music' ? "secondary" : "ghost"}
+                  variant={selectedCategory === 'daily-recommendation' ? "secondary" : "ghost"}
                   className="w-full justify-start font-normal"
-                  onClick={() => handleCategoryClick('All Music')}
+                  onClick={() => handleCategoryClick('daily-recommendation')}
                 >
-                  <ListMusic className="mr-2 h-4 w-4" />
-                  {t('common.allMusic')}
+                  <Sparkles className="mr-2 h-4 w-4 text-yellow-500" />
+                  {t('common.dailyRecommendation')}
                 </Button>
                 {config.categories.map((category) => {
                   const Icon = getCategoryIcon(category.en);
@@ -65,6 +65,14 @@ export default function Sidebar({ config, selectedCategory, setSelectedCategory,
                     )
                   )
                 })}
+                <Button
+                  variant={selectedCategory === 'All Music' ? "secondary" : "ghost"}
+                  className="w-full justify-start font-normal"
+                  onClick={() => handleCategoryClick('All Music')}
+                >
+                  <ListMusic className="mr-2 h-4 w-4" />
+                  {t('common.allMusic')}
+                </Button>
               </div>
             </div>
 
